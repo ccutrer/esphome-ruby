@@ -79,7 +79,11 @@ module ESPHome
           @target_temperature = state_response.target_temperature
         end
         @action = state_response.action[15..].downcase.to_sym if action?
-        @fan_mode = state_response.custom_fan_mode.empty? ? state_response.fan_mode[12..].downcase.to_sym : state_response.custom_fan_mode.downcase.to_sym
+        @fan_mode = if state_response.custom_fan_mode.empty?
+                      state_response.fan_mode[12..].downcase.to_sym
+                    else
+                      state_response.custom_fan_mode.downcase.to_sym
+                    end
         @swing_mode = state_response.swing_mode[14..].downcase.to_sym
         @preset = if !state_response.custom_preset.empty?
                     state_response.custom_preset.to_sym
