@@ -1,0 +1,13 @@
+inherit_gem:
+  rubocop-inst:
+  - rubocop.yml
+
+plugins:
+  - rubocop-rake
+
+AllCops:
+  Exclude:
+  - lib/esphome/api/*.rb
+
+Style/Documentation:
+  Enabled: false
