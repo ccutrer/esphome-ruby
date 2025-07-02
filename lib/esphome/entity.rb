@@ -82,7 +82,7 @@ module ESPHome
     end
 
     attr_reader :device,
-                :object_id,
+                :object_id_,
                 :key,
                 :name,
                 :unique_id,
@@ -92,7 +92,7 @@ module ESPHome
 
     def initialize(device, list_entities_response)
       @device = device
-      @object_id = list_entities_response["object_id"]
+      @object_id_ = list_entities_response["object_id"]
       @key = list_entities_response.key
       @name = list_entities_response.name
       @unique_id = list_entities_response.unique_id
@@ -114,7 +114,7 @@ module ESPHome
     private
 
     def inspection_vars
-      %i[object_id key name unique_id icon disabled_by_default entity_category]
+      %i[object_id_ key name unique_id icon disabled_by_default entity_category]
     end
 
     def hideable?(var, val)
@@ -126,7 +126,7 @@ module ESPHome
 
     def generated_unique_id
       klass_name = self.class.name.split("::").last.gsub(/(?<!\A)([A-Z])/, "_\\1").downcase
-      "#{device.name}#{klass_name}#{object_id}"
+      "#{device.name}#{klass_name}#{object_id_}"
     end
   end
 end
