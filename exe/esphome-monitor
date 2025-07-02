@@ -62,7 +62,40 @@ def parse_ansi_and_render(line)
   end
 end
 
-@device = ESPHome::Device.new(ARGV[0], ARGV[1], logger: Logger.new(IO::NULL))
+if ARGV.size == 1
+  uri = "http://localhost:6052/"
+  device_name = ARGV[0]
+elsif ARGV.size == 2 && ARGV[0].include?(":")
+  uri, device_name = ARGV
+elsif ARGV.size == 2
+  address, encryption_key = ARGV
+else
+  warn "Usage: esphome-monitor ([<uri>] <device_name> | <address> <encryption_key>)"
+  warn "Example: esphome-monitor http://localhost:6052/ my_device"
+  warn "  If URI is omitted, it defaults to http://localhost:6052/"
+  exit(-1)
+end
+
+if uri
+  require "esphome/dashboard"
+
+  dashboard = ESPHome::Dashboard.new(uri)
+
+  device = dashboard.devices.find { |d| d["name"] == device_name }
+  unless device
+    warn "Device not found: #{device_name}"
+    exit 1
+  end
+
+  address = device["address"]
+  encryption_key = dashboard.encryption_key(device["configuration"])
+  unless encryption_key
+    warn "No encryption key found for device #{device_name}"
+    exit 1
+  end
+end
+
+@device = ESPHome::Device.new(address, encryption_key, logger: Logger.new(IO::NULL))
 
 def print_entity(entity, clear_line: true)
   return unless @entities.key?(entity.key) # has an unsupported entity

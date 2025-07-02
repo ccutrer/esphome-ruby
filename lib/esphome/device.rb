@@ -20,7 +20,7 @@ module ESPHome
                      :API_VERSION_MAJOR,
                      :API_VERSION_MINOR
 
-    attr_reader :hostname,
+    attr_reader :address,
                 :port,
                 :name,
                 :mac_address,
@@ -34,8 +34,8 @@ module ESPHome
                 :suggested_area
     attr_accessor :logger
 
-    def initialize(hostname, encryption_key, port: 6053, logger: nil)
-      @hostname = hostname
+    def initialize(address, encryption_key, port: 6053, logger: nil)
+      @address = address
       @encryption_key = encryption_key.unpack1("m0")
       @port = port
       @socket = nil
@@ -46,7 +46,7 @@ module ESPHome
     end
 
     def connect
-      @socket = TCPSocket.new(@hostname, @port)
+      @socket = TCPSocket.new(address, port)
       begin
         # Noise logs warnings about not being able to load algorithms we don't even care about.
         old_level = Noise.logger.level

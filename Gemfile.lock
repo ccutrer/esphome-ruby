@@ -4,6 +4,7 @@ PATH
     esphome (0.1.1)
       curses (~> 1.5)
       google-protobuf (~> 4.31)
+      httpx (~> 1.5)
       logger (~> 1.7)
       noise-ruby (~> 0.10)
 
@@ -29,6 +30,9 @@ GEM
     google-protobuf (4.31.1-x86_64-linux-gnu)
       bigdecimal
       rake (>= 13)
+    http-2 (1.1.1)
+    httpx (1.5.1)
+      http-2 (>= 1.0.0)
     io-console (0.8.0)
     irb (1.15.2)
       pp (>= 0.6.0)
