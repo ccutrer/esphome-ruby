@@ -15,6 +15,10 @@ module ESPHome
         @mode = list_entities_response.mode[10..].downcase.to_sym
       end
 
+      def command(state)
+        device.send(Api::TextCommandRequest.new(key:, state:))
+      end
+
       private
 
       def inspection_vars

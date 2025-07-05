@@ -12,6 +12,10 @@ module ESPHome
                    Time.at(state_response.epoch_seconds)
                  end
       end
+
+      def command(state)
+        device.send(Api::DateTimeCommandRequest.new(key:, epoch_seconds: state.to_i))
+      end
     end
   end
 end

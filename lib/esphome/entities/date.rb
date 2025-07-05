@@ -14,6 +14,10 @@ module ESPHome
                             date_response.day)
                  end
       end
+
+      def command(state)
+        device.send(Api::DateCommandRequest.new(key:, year: state.year, month: state.month, day: state.day))
+      end
     end
   end
 end

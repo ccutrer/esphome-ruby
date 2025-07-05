@@ -13,6 +13,10 @@ module ESPHome
         @options = list_entities_response.options.map(&:freeze).freeze
       end
 
+      def command(state)
+        device.send(Api::SelectCommandRequest.new(key:, state:))
+      end
+
       private
 
       def inspection_vars

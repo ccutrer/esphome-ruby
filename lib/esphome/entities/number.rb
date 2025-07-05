@@ -28,7 +28,7 @@ module ESPHome
         decimals.size
       end
 
-      def formatted_state
+      def formatted_state(state = self.state)
         result = if state
                    format("%.#{accuracy_decimals}f", state)
                  else
@@ -36,6 +36,10 @@ module ESPHome
                  end
         result += " #{unit_of_measurement}" if unit_of_measurement
         result
+      end
+
+      def set(state)
+        device.send(Api::NumberCommandRequest.new(key:, state:))
       end
 
       private

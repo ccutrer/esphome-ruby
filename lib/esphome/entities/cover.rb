@@ -48,6 +48,35 @@ module ESPHome
                              end
       end
 
+      def command(position: nil, tilt: nil)
+        command = Api.CoverCommandRequest.new(key:)
+        if position
+          command.has_position = true
+          command.position = position
+        end
+        if tilt
+          command.has_tilt = true
+          command.tilt = tilt
+        end
+        device.send(command)
+      end
+
+      def open
+        device.send(Api.CoverOpenRequest.new(key:,
+                                             has_legacy_command: true,
+                                             legacy_command: :LEGACY_COVER_COMMAND_OPEN))
+      end
+
+      def close
+        device.send(Api.CoverOpenRequest.new(key:,
+                                             has_legacy_command: true,
+                                             legacy_command: :LEGACY_COVER_COMMAND_CLOSE))
+      end
+
+      def stop
+        device.send(Api.CoverStopRequest.new(key:, stop: true))
+      end
+
       private
 
       def inspection_vars

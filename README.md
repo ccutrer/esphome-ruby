@@ -71,6 +71,14 @@ Sensor - WiFi Signal Strength           : [11:25:27] -60 dBm
  * Update
  * Valve
 
+## Partially Supported Entities
+
+These entities can be parsed and state shown, but not have commands sent to them:
+
+ * Climate
+ * Fan
+ * Light
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/ccutrer/esphome-ruby.

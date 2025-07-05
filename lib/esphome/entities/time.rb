@@ -22,6 +22,18 @@ module ESPHome
 
         super
       end
+
+      def command(state)
+        if defined?(ActiveSupport::Duration)
+          parts = state.parts
+          device.send(Api::TimeCommandRequest.new(key:,
+                                                  hour: parts[:hours] || 0,
+                                                  minute: parts[:minutes] || 0,
+                                                  second: parts[:seconds] || 0))
+        else
+          device.send(Api::TimeCommandRequest.new(key:, hour: state[0], minute: state[1], second: state[2]))
+        end
+      end
     end
   end
 end
