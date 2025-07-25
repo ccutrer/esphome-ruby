@@ -63,30 +63,54 @@ module ESPHome
           @win.refresh
         end
 
-        @device.connect
+        @device.on_connect do
+          log("Connected")
+          @name_width = @device.entities.values.map { |e| e.name.length }.max || 0
+          @entities_by_key = {}
+          @entities = []
+          @device.entities.values.sort_by(&:name).each_with_index do |entity, idx|
+            simple_name = entity.class.name.split("::").last
+            entity_class = if Entities.const_defined?(simple_name)
+                             Entities.const_get(simple_name, false)
+                           else
+                             Entity
+                           end
+            entity_wrapper = entity_class.new(self, entity, idx)
+            @entities_by_key[entity.key] = entity_wrapper
+            @entities << entity_wrapper
+          end
 
-        @name_width = @device.entities.values.map { |e| e.name.length }.max || 0
-        @device.entities.values.sort_by(&:name).each_with_index do |entity, idx|
-          simple_name = entity.class.name.split("::").last
-          entity_class = if Entities.const_defined?(simple_name)
-                           Entities.const_get(simple_name, false)
-                         else
-                           Entity
-                         end
-          entity_wrapper = entity_class.new(self, entity, idx)
-          @entities_by_key[entity.key] = entity_wrapper
-          @entities << entity_wrapper
-        end
-
-        @current_entity = @entities.index { |e| e.respond_to?(:activate) } || -1
-
-        begin
+          @current_entity = @entities.index { |e| e.respond_to?(:activate) } || -1
           render_all
 
+          @device.stream_states
+          @device.stream_log(dump_config: true)
+        end
+
+        @device.on_disconnect do
+          log("Gracefully disconnected")
+          render_log
+          reconnect
+        end
+
+        @device.connect
+
+        begin
           Thread.new do
-            @device.stream_states
-            @device.stream_log(dump_config: true)
             @device.loop
+          rescue IOError, SocketError, SystemCallError, Timeout::Error => e
+            log("Connection lost: #{e}")
+            render_log
+            @device.disconnect
+            reconnect
+            retry
+          rescue => e
+            log("UNHANDLED EXCEPTION: #{e}")
+            e.backtrace.each do |line|
+              log("  #{line}")
+            end
+            render_log
+            retry
           end
 
           loop do
@@ -124,6 +148,7 @@ module ESPHome
         ensure
           Curses.close_screen
         end
+        @device.disconnect
       end
 
       def log(message)
@@ -187,6 +212,14 @@ module ESPHome
         render_log
 
         @win.refresh
+      end
+
+      def reconnect
+        @device.connect
+      rescue IOError, SocketError, SystemCallError, Timeout::Error => e
+        log("Failed to reconnect: #{e}")
+        sleep 1
+        retry
       end
     end
   end

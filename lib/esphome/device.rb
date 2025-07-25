@@ -32,7 +32,7 @@ module ESPHome
                 :manufacturer,
                 :friendly_name,
                 :suggested_area
-    attr_accessor :logger
+    attr_accessor :logger, :read_timeout
 
     def initialize(address, encryption_key, port: 6053, logger: nil)
       @address = address
@@ -41,30 +41,36 @@ module ESPHome
       @socket = nil
       @logger = logger || Logger.new($stdout)
       @noise = nil
+      @on_connect_callback = nil
+      @on_disconnect_callback = nil
       @on_message_callback = nil
       @entities = nil
+      @read_timeout = 5
     end
 
     def connect
-      @socket = TCPSocket.new(address, port)
+      return if @socket
+
+      @socket = TCPSocket.new(address, port, connect_timeout: 1)
       begin
         # Noise logs warnings about not being able to load algorithms we don't even care about.
         old_level = Noise.logger.level
         Noise.logger.level = Logger::ERROR
-        @noise = Noise::Connection::Initiator.new(NOISE_PROTOCOL)
+        noise = Noise::Connection::Initiator.new(NOISE_PROTOCOL)
       ensure
         Noise.logger.level = old_level
       end
-      @noise.psks = [@encryption_key]
-      @noise.prologue = NOISE_PROLOGUE
-      @noise.start_handshake
+      noise.psks = [@encryption_key]
+      noise.prologue = NOISE_PROLOGUE
+      noise.start_handshake
 
       write_frame("")
 
       _device_id = read_frame
 
-      write_frame("\0#{@noise.write_message}")
-      @noise.read_message(read_frame[1..])
+      write_frame("\0#{noise.write_message}")
+      noise.read_message(read_frame[1..])
+      @noise = noise
 
       send(Api::HelloRequest.new(client_info: "esphome-ruby",
                                  api_version_major: API_VERSION_MAJOR,
@@ -98,6 +104,12 @@ module ESPHome
       @suggested_area = message.suggested_area
 
       @entities = nil
+
+      @on_connect_callback&.call
+    end
+
+    def disconnect
+      send(Api::DisconnectRequest.new) if @socket && @noise
     end
 
     def entities
@@ -133,7 +145,13 @@ module ESPHome
 
     def loop
       Kernel.loop do
-        message = read_message
+        message = nil
+        begin
+          message = read_message
+        rescue Timeout::Error
+          send(Api::PingRequest.new) if @noise
+          next
+        end
 
         if message.is_a?(Api::PingRequest)
           send(Api::PingResponse.new)
@@ -145,6 +163,16 @@ module ESPHome
           @on_message_callback&.call(entity)
         elsif message.is_a?(Api::SubscribeLogsResponse)
           @on_message_callback&.call(message.message)
+        elsif message.is_a?(Api::DisconnectRequest)
+          send(Api::DisconnectResponse.new)
+          disconnected
+          @on_message_callback&.call("Device disconnected")
+          @on_disconnect_callback&.call
+        elsif message.is_a?(Api::DisconnectResponse)
+          disconnected
+          @on_message_callback&.call("Disconnected")
+        elsif message.is_a?(Api::PingResponse)
+          # Nothing to do
         else
           @on_message_callback&.call(message)
         end
@@ -153,11 +181,18 @@ module ESPHome
       nil
     end
 
-    def on_message(&block)
-      @on_message_callback = block
+    %i[connect disconnect message].each do |callback|
+      class_eval <<-RUBY, __FILE__, __LINE__ + 1
+        def on_#{callback}(&block)          # def on_connect(&block)
+          @on_#{callback}_callback = block  #   @on_connect_callback = block
+          self                              #   self
+        end                                 # end
+      RUBY
     end
 
     def send(message)
+      raise "Encryption not yet set up" unless @noise
+
       logger.debug { "> #{message.inspect}" }
       serialized_message = message.to_proto
       unencrypted_message = [message.class.descriptor.id,
@@ -169,11 +204,27 @@ module ESPHome
 
     private
 
+    def disconnected
+      @socket&.close
+      @socket = nil
+      @noise = nil
+      @entities = nil
+    end
+
     def write_frame(data)
+      raise "Not connected" unless @socket
+
       @socket.write([PROTOCOL_ENCRYPTED, data.length, data].pack("cnA*"))
+    rescue => e
+      @on_message_callback&.call("Error writing to socket: #{e}")
+      disconnected
+      raise
     end
 
     def read_frame
+      raise "Not connected" unless @socket
+
+      @socket.wait_readable(@read_timeout) or raise Timeout::Error
       header = @socket.read(3)
       raise "No data" if header.nil?
 
@@ -181,7 +232,14 @@ module ESPHome
       raise "Plaintext protocol not supported" if type == PROTOCOL_PLAINTEXT
       raise "Unrecognized protocol #{type}" unless type == PROTOCOL_ENCRYPTED
 
+      @socket.wait_readable(@read_timeout) or raise Timeout::Error
       @socket.read(length)
+    rescue Timeout::Error
+      raise
+    rescue => e
+      @on_message_callback&.call("Error reading from socket: #{e}")
+      disconnected
+      raise
     end
 
     def read_message
