@@ -13,7 +13,9 @@ module ESPHome
     end
 
     def config(configuration)
-      @http.get("/json-config", params: { configuration: }).tap(&:raise_for_status).json
+      @http.get("/json-config", params: { configuration: })
+           .tap(&:raise_for_status)
+           .json(allow_nan: true)
     end
 
     def encryption_key(configuration)
