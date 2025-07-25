@@ -27,7 +27,7 @@ module ESPHome
 
       def formatted_state
         result = if position?
-                   "#{position || "-"}%"
+                   "#{position ? position * 100 : "-"}%"
                  else
                    super
                  end
