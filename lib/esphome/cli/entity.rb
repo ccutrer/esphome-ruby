@@ -42,6 +42,7 @@ module ESPHome
 end
 
 require_relative "entities/button"
+require_relative "entities/cover"
 require_relative "entities/date"
 require_relative "entities/date_time"
 require_relative "entities/lock"

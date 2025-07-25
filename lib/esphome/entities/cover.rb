@@ -49,7 +49,7 @@ module ESPHome
       end
 
       def command(position: nil, tilt: nil)
-        command = Api.CoverCommandRequest.new(key:)
+        command = Api::CoverCommandRequest.new(key:)
         if position
           command.has_position = true
           command.position = position
@@ -62,19 +62,19 @@ module ESPHome
       end
 
       def open
-        device.send(Api.CoverOpenRequest.new(key:,
-                                             has_legacy_command: true,
-                                             legacy_command: :LEGACY_COVER_COMMAND_OPEN))
+        device.send(Api::CoverCommandRequest.new(key:,
+                                                 has_legacy_command: true,
+                                                 legacy_command: :LEGACY_COVER_COMMAND_OPEN))
       end
 
       def close
-        device.send(Api.CoverOpenRequest.new(key:,
-                                             has_legacy_command: true,
-                                             legacy_command: :LEGACY_COVER_COMMAND_CLOSE))
+        device.send(Api::CoverCommandRequest.new(key:,
+                                                 has_legacy_command: true,
+                                                 legacy_command: :LEGACY_COVER_COMMAND_CLOSE))
       end
 
       def stop
-        device.send(Api.CoverStopRequest.new(key:, stop: true))
+        device.send(Api::CoverCommandRequest.new(key:, stop: true))
       end
 
       private
