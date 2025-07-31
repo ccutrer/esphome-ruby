@@ -2,6 +2,7 @@
 
 require "noise"
 require "socket"
+require "timeout"
 
 require_relative "api"
 
@@ -32,7 +33,7 @@ module ESPHome
                 :manufacturer,
                 :friendly_name,
                 :suggested_area
-    attr_accessor :logger, :read_timeout
+    attr_accessor :logger, :connect_timeout, :read_timeout
 
     def initialize(address, encryption_key, port: 6053, logger: nil)
       @address = address
@@ -45,13 +46,14 @@ module ESPHome
       @on_disconnect_callback = nil
       @on_message_callback = nil
       @entities = nil
+      @connect_timeout = 5
       @read_timeout = 5
     end
 
     def connect
       return if @socket
 
-      @socket = TCPSocket.new(address, port, connect_timeout: 1)
+      @socket = TCPSocket.new(address, port, connect_timeout: @connect_timeout)
       begin
         # Noise logs warnings about not being able to load algorithms we don't even care about.
         old_level = Noise.logger.level
