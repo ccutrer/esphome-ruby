@@ -13,7 +13,7 @@ module ESPHome
     PROTOCOL_PLAINTEXT = 0
     PROTOCOL_ENCRYPTED = 1
     API_VERSION_MAJOR = 1
-    API_VERSION_MINOR = 9
+    API_VERSION_MINOR = 12
     private_constant :NOISE_PROTOCOL,
                      :NOISE_PROLOGUE,
                      :PROTOCOL_PLAINTEXT,

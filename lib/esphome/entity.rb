@@ -85,7 +85,6 @@ module ESPHome
                 :object_id_,
                 :key,
                 :name,
-                :unique_id,
                 :icon,
                 :disabled_by_default,
                 :entity_category
@@ -95,7 +94,6 @@ module ESPHome
       @object_id_ = list_entities_response["object_id"]
       @key = list_entities_response.key
       @name = list_entities_response.name
-      @unique_id = list_entities_response.unique_id
       @icon = list_entities_response.icon.empty? ? nil : list_entities_response.icon
       @disabled_by_default = list_entities_response.disabled_by_default
       @entity_category = list_entities_response.entity_category[16..].downcase.to_sym
@@ -114,19 +112,13 @@ module ESPHome
     private
 
     def inspection_vars
-      %i[object_id_ key name unique_id icon disabled_by_default entity_category]
+      %i[object_id_ key name icon disabled_by_default entity_category]
     end
 
     def hideable?(var, val)
-      (var == :unique_id && val == generated_unique_id) ||
-        (var == :disabled_by_default && !val) ||
+      (var == :disabled_by_default && !val) ||
         (var == :icon && val.nil?) ||
         (var == :entity_category && val == :none)
-    end
-
-    def generated_unique_id
-      klass_name = self.class.name.split("::").last.gsub(/(?<!\A)([A-Z])/, "_\\1").downcase
-      "#{device.name}#{klass_name}#{object_id_}"
     end
   end
 end
