@@ -247,7 +247,11 @@ module ESPHome
     def read_message
       encrypted_message = read_frame
       decrypted_message = @noise.decrypt(encrypted_message)
-      id, _length, encoded_message = decrypted_message.unpack("nnA*")
+      id, length, encoded_message = decrypted_message.unpack("nna*")
+      if length != encoded_message.length
+        raise "Unexpected message length #{encoded_message.length}; expected #{length}"
+      end
+
       klass = Api::ID_TO_MESSAGE[id]
       raise "Unrecognized message id #{id}" unless klass
 
