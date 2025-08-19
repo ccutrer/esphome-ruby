@@ -25,7 +25,7 @@ module ESPHome
 
       def initialize(device)
         @device = device
-        @win = Curses.stdscr
+        @win = nil
         @entities_by_key = {}
         @entities = []
         @log_lines = []
@@ -35,35 +35,40 @@ module ESPHome
       end
 
       def run
-        Signal.trap("SIGWINCH") do
-          render_all
-        end
-
-        Curses.init_screen
-        Curses.noecho
-        Curses.start_color
-        Curses.use_default_colors
-        @win = Curses.stdscr
-        @win.keypad = true
-        Colors::ANSI_COLOR_MAP.each_value do |color|
-          Curses.init_pair(color + 1, color, -1)
-        end
-
         @device.on_message do |entity_or_log_line|
           if entity_or_log_line.is_a?(String)
             log(entity_or_log_line)
+            puts log_line unless @win
 
-            render_log unless @sub_active
+            render_log if @win && !@sub_active
           elsif (entity_wrapper = @entities_by_key[entity_or_log_line.key])
             entity_wrapper.touch
             entity_wrapper.print(@win, active: @current_entity == entity_wrapper.index) unless @sub_active
           end
-          next if @sub_active
+          next if !@win || @sub_active
 
           @win.refresh
         end
 
         @device.on_connect do
+          unless @win
+            @win = Curses.stdscr
+
+            Signal.trap("SIGWINCH") do
+              render_all
+            end
+
+            Curses.init_screen
+            Curses.noecho
+            Curses.start_color
+            Curses.use_default_colors
+            @win = Curses.stdscr
+            @win.keypad = true
+            Colors::ANSI_COLOR_MAP.each_value do |color|
+              Curses.init_pair(color + 1, color, -1)
+            end
+          end
+
           log("Connected")
           @name_width = @device.entities.values.map { |e| e.name.length }.max || 0
           @entities_by_key = {}
