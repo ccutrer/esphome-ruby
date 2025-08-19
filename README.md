@@ -26,38 +26,42 @@ $> esphome-monitor <host-name> <encryption-key>
 
 ```
 ESPHome
-Laundry Room Motion Sensor                    (2025.5.1 - Jun 28 2025, 14:27:10)
+Laundry Room Motion Sensor                      2025.7.5 - Aug 18 2025, 16:55:47
 ================================================================================
-Switch - Bluetooth                      : [11:25:26] false
-Sensor - Illuminance                    : [11:25:26] 38.4 lx
-Number - Max Range                      : [11:25:26] 5400 mm
-Number - Min Range                      : [11:25:26] 100 mm
-BinarySensor - Presence                 : [11:25:26] false
-TextSensor - Radar Bluetooth MAC Address: [11:25:26] unknown
-TextSensor - Radar Firmware Version     : [11:25:26] 2.04.23101915
-Sensor - Target 1 Angle                 : [11:25:26] 0 °
-Sensor - Target 1 Distance              : [11:25:26] 0 mm
-Sensor - Target 1 Speed                 : [11:25:26] 0 mm/s
-Sensor - Target 1 X                     : [11:25:26] 0 mm
-Sensor - Target 1 Y                     : [11:25:26] 0 mm
-Sensor - Target 2 Angle                 : [11:25:26] 0 °
-Sensor - Target 2 Distance              : [11:25:26] 0 mm
-Sensor - Target 2 Speed                 : [11:25:26] 0 mm/s
-Sensor - Target 2 X                     : [11:25:26] 0 mm
-Sensor - Target 2 Y                     : [11:25:26] 0 mm
-Sensor - Target 3 Angle                 : [11:25:26] 0 °
-Sensor - Target 3 Distance              : [11:25:26] 0 mm
-Sensor - Target 3 Speed                 : [11:25:26] 0 mm/s
-Sensor - Target 3 X                     : [11:25:26] 0 mm
-Sensor - Target 3 Y                     : [11:25:26] 0 mm
-Number - Timeout                        : [11:25:26] 1 s
-Sensor - Uptime                         : [11:25:26] 248262 s
-Sensor - WiFi Signal Strength           : [11:25:27] -60 dBm
+Bluetooth                   : off                                     [14:30:30]
+Factory Reset Radar         : PRESS
+Illuminance                 : 47.1 lx                                 [14:30:30]
+Max Range                   : 5400 mm                                 [14:30:30]
+Min Range                   : 300 mm                                  [14:30:30]
+Presence                    : not occupied                            [14:30:30]
+Radar Bluetooth MAC Address : unknown                                 [14:30:30]
+Radar Firmware Version      : 2.04.23101915                           [14:30:30]
+Restart                     : PRESS
+Restart Radar               : PRESS
+Target 1 Angle              : 0 °                                     [14:30:30]
+Target 1 Distance           : 0 mm                                    [14:30:30]
+Target 1 Speed              : 0 mm/s                                  [14:30:30]
+Target 1 X                  : 0 mm                                    [14:30:30]
+Target 1 Y                  : 0 mm                                    [14:30:30]
+Target 2 Angle              : 0 °                                     [14:30:30]
+Target 2 Distance           : 0 mm                                    [14:30:30]
+Target 2 Speed              : 0 mm/s                                  [14:30:30]
+Target 2 X                  : 0 mm                                    [14:30:30]
+Target 2 Y                  : 0 mm                                    [14:30:30]
+Target 3 Angle              : 0 °                                     [14:30:30]
+Target 3 Distance           : 0 mm                                    [14:30:30]
+Target 3 Speed              : 0 mm/s                                  [14:30:30]
+Target 3 X                  : 0 mm                                    [14:30:30]
+Target 3 Y                  : 0 mm                                    [14:30:30]
+Timeout                     : 1 s                                     [14:30:30]
+Uptime                      : 77611 s                                 [14:30:31]
+WiFi Signal Strength        : -72 dBm                                 [14:30:34]
 
-[11:25:26][I][app:115]: ESPHome version 2025.5.1 compiled on Jun 28 2025, 14:27:10
-[11:25:26][I][app:117]: Project ccutrer.ld2450 version 1.0
-[11:25:26][I][i2c.idf:102]: Results from i2c bus scan:
-[11:25:26][I][i2c.idf:108]: Found i2c device at address 0x44
+[14:30:29] Connected
+[14:30:30] [I][app:149]: ESPHome version 2025.7.5 compiled on Aug 18 2025, 16:55:47
+[14:30:30] [I][app:151]: Project ccutrer.ld2450 version 1.0
+[14:30:30] [I][i2c.idf:104]: Results from bus scan:
+[14:30:30] [I][i2c.idf:110]: Found device at address 0x44
 ```
 
 ## Unsupported Entities
