@@ -5,6 +5,7 @@ require "optparse"
 
 require "esphome/cli/monitor"
 
+actions = true
 log_level = :info
 connection_log_level = :warn
 device_log_level = :debug
@@ -17,6 +18,9 @@ opts = OptionParser.new do |opts|
       If URI is omitted, it defaults to http://localhost:6052/
   TEXT
 
+  opts.on("--[no-]actions", "Subscribe to Home Assistant actions (default on)") do |v|
+    actions = v
+  end
   opts.on("--connection-log-level=VALUE", "Connection log level") do |v|
     connection_log_level = v
   end
@@ -69,4 +73,4 @@ end
 
 device = ESPHome::Device.new(address, encryption_key)
 
-ESPHome::Cli::Monitor.run(device, connection_log_level:, device_log_level:, log_level:, dump_config:)
+ESPHome::Cli::Monitor.run(device, connection_log_level:, device_log_level:, log_level:, actions:, dump_config:)

@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative "api/api_pb"
+require_relative "action"
 require_relative "entity"
 
 module ESPHome

@@ -159,6 +159,10 @@ module ESPHome
       send(request)
     end
 
+    def stream_actions
+      send(Api::SubscribeHomeassistantServicesRequest.new)
+    end
+
     def loop
       Kernel.loop do
         message = nil
@@ -179,6 +183,8 @@ module ESPHome
           @on_message_callback&.call(entity)
         elsif message.is_a?(Api::SubscribeLogsResponse)
           device_logger&.log(LOG_LEVEL_MAP[message.level], message.message)
+        elsif message.is_a?(Api::HomeassistantServiceResponse)
+          @on_message_callback&.call(Action.from_protobuf(message))
         elsif message.is_a?(Api::DisconnectRequest)
           send(Api::DisconnectResponse.new)
           disconnected

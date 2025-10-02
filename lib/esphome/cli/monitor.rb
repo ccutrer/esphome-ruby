@@ -41,7 +41,12 @@ module ESPHome
       attr_reader :name_width
       attr_accessor :logger
 
-      def initialize(device, device_log_level: nil, connection_log_level: nil, log_level: nil, dump_config: false)
+      def initialize(device,
+                     actions: false,
+                     device_log_level: nil,
+                     connection_log_level: nil,
+                     log_level: nil,
+                     dump_config: false)
         @device = device
         @win = nil
         @entities_by_key = {}
@@ -53,6 +58,7 @@ module ESPHome
         @device.device_logger = LoggerWrapper.new(self, level: device_log_level || Logger::DEBUG)
         @device.connection_logger = LoggerWrapper.new(self, level: connection_log_level || Logger::WARN)
         @logger = LoggerWrapper.new(self, level: log_level || Logger::INFO)
+        @actions = actions
         @dump_config = dump_config
         @winch_trapped = false
         @logwin = nil
@@ -71,6 +77,8 @@ module ESPHome
           if entity_or_log_line.respond_to?(:key) && (entity_wrapper = @entities_by_key[entity_or_log_line.key])
             entity_wrapper.touch
             entity_wrapper.print(@win, active: @current_entity == entity_wrapper.index) unless @sub_active
+          elsif entity_or_log_line.is_a?(Action)
+            logger.info(entity_or_log_line.inspect)
           end
           next if !@win || @sub_active
 
@@ -99,6 +107,7 @@ module ESPHome
           render_all
 
           @device.stream_states
+          @device.stream_actions if @actions
           @device.stream_log(dump_config: @dump_config) if @device.device_logger.level < Logger::FATAL
         end
 
