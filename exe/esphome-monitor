@@ -24,13 +24,13 @@ opts = OptionParser.new do |opts|
   opts.on("--connection-log-level=VALUE", "Connection log level") do |v|
     connection_log_level = v
   end
-  opts.on("--device-log-level=VALUE", "Device log level") do |v|
+  opts.on("--device-log-level=VALUE", "Device log level (`fatal` to disable log streaming)") do |v|
     device_log_level = v
   end
   opts.on("--log-level=VALUE", "Monitoring program log level") do |v|
     log_level = v
   end
-  opts.on("--dump-config", "Dump device configuration on connect") do
+  opts.on("--dump-config", "Dump device configuration on connect (requires log streaming at info level)") do
     dump_config = true
   end
   opts.on("-h", "--help", "Show this help message") do
