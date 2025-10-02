@@ -18,7 +18,7 @@ module ESPHome
 
         def command(value)
           value = value.to_sym
-          cli.log("#{VERBS[value]} #{object_id_}")
+          cli.info("#{VERBS[value]} #{object_id_}")
           __send__(value)
         end
       end

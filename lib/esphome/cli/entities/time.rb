@@ -27,11 +27,11 @@ module ESPHome
               value.unshift(0) while value.length < 3
             end
           rescue ArgumentError
-            cli.log("Invalid time: #{value}")
+            cli.error("Invalid time: #{value}")
             return
           end
 
-          cli.log("Setting #{object_id_} to #{value.iso8601}")
+          cli.info("Setting #{object_id_} to #{value.iso8601}")
           super
         end
       end

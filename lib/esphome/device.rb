@@ -14,12 +14,25 @@ module ESPHome
     PROTOCOL_ENCRYPTED = 1
     API_VERSION_MAJOR = 1
     API_VERSION_MINOR = 12
+
+    LOG_LEVEL_MAP = Hash.new(Logger::UNKNOWN).merge(
+      LOG_LEVEL_NONE: Logger::FATAL,
+      LOG_LEVEL_ERROR: Logger::ERROR,
+      LOG_LEVEL_WARN: Logger::WARN,
+      LOG_LEVEL_INFO: Logger::INFO,
+      LOG_LEVEL_CONFIG: Logger::INFO,
+      LOG_LEVEL_DEBUG: Logger::DEBUG,
+      LOG_LEVEL_VERBOSE: Logger::DEBUG,
+      LOG_LEVEL_VERY_VERBOSE: Logger::DEBUG
+    ).freeze
+
     private_constant :NOISE_PROTOCOL,
                      :NOISE_PROLOGUE,
                      :PROTOCOL_PLAINTEXT,
                      :PROTOCOL_ENCRYPTED,
                      :API_VERSION_MAJOR,
-                     :API_VERSION_MINOR
+                     :API_VERSION_MINOR,
+                     :LOG_LEVEL_MAP
 
     attr_reader :address,
                 :port,
@@ -33,14 +46,15 @@ module ESPHome
                 :manufacturer,
                 :friendly_name,
                 :suggested_area
-    attr_accessor :logger, :connect_timeout, :read_timeout
+    attr_accessor :connection_logger, :device_logger, :connect_timeout, :read_timeout
 
-    def initialize(address, encryption_key, port: 6053, logger: nil)
+    def initialize(address, encryption_key, port: 6053)
       @address = address
       @encryption_key = encryption_key.unpack1("m0")
       @port = port
       @socket = nil
-      @logger = logger || Logger.new($stdout)
+      @connection_logger = nil
+      @device_logger = nil
       @noise = nil
       @on_connect_callback = nil
       @on_disconnect_callback = nil
@@ -125,7 +139,7 @@ module ESPHome
         break if message.is_a?(Api::ListEntitiesDoneResponse)
 
         unless message.class.respond_to?(:entity_class)
-          logger.warn("Unrecognized entity #{message.inspect}")
+          connection_logger&.warn("Unrecognized entity #{message.inspect}")
           next
         end
 
@@ -164,7 +178,7 @@ module ESPHome
           entity.update(message)
           @on_message_callback&.call(entity)
         elsif message.is_a?(Api::SubscribeLogsResponse)
-          @on_message_callback&.call(message.message)
+          device_logger&.log(LOG_LEVEL_MAP[message.level], message.message)
         elsif message.is_a?(Api::DisconnectRequest)
           send(Api::DisconnectResponse.new)
           disconnected
@@ -195,7 +209,7 @@ module ESPHome
     def send(message)
       raise "Encryption not yet set up" unless @noise
 
-      logger.debug { "> #{message.inspect}" }
+      connection_logger&.debug { "> #{message.inspect}" }
       serialized_message = message.to_proto
       unencrypted_message = [message.class.descriptor.id,
                              serialized_message.length,
@@ -256,7 +270,7 @@ module ESPHome
       raise "Unrecognized message id #{id}" unless klass
 
       klass.decode(encoded_message).tap do |message|
-        logger.debug { "< #{message.inspect}" }
+        connection_logger&.debug { "< #{message.inspect}" }
       end
     end
   end

@@ -9,7 +9,7 @@ module ESPHome
         def options = %w[on off]
 
         def command(command)
-          cli.log("Turning #{object_id_} #{command}")
+          cli.info("Turning #{object_id_} #{command}")
           __send__(command.to_sym)
         end
       end

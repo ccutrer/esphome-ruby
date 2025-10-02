@@ -7,7 +7,7 @@ module ESPHome
     module Entities
       class Text < Form
         def command(value)
-          cli.log("Setting #{object_id_} to #{value}")
+          cli.info("Setting #{object_id_} to #{value}")
           super
         end
       end

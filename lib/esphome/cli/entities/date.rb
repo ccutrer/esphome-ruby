@@ -14,11 +14,11 @@ module ESPHome
           begin
             value = Date.parse(value)
           rescue ArgumentError
-            cli.log("Invalid date: #{value}")
+            cli.error("Invalid date: #{value}")
             return
           end
 
-          cli.log("Setting #{object_id_} to #{value.iso8601}")
+          cli.info("Setting #{object_id_} to #{value.iso8601}")
           super
         end
       end

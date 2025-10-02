@@ -15,6 +15,23 @@ module ESPHome
 
       HEADER_ROWS = 3
 
+      class LoggerWrapper < Logger
+        def initialize(parent, level: Logger::DEBUG)
+          super(IO::NULL, level:)
+
+          @parent = parent
+        end
+
+        def add(severity, message = nil, progname = nil, ...)
+          severity ||= UNKNOWN
+          return true if severity < level
+
+          @parent.add(severity, message, progname, ...)
+        end
+        alias_method :log, :add
+      end
+      private_constant :LoggerWrapper
+
       class << self
         def run(...)
           new(...).run
@@ -22,8 +39,9 @@ module ESPHome
       end
 
       attr_reader :name_width
+      attr_accessor :logger
 
-      def initialize(device)
+      def initialize(device, device_log_level: nil, connection_log_level: nil, log_level: nil, dump_config: false)
         @device = device
         @win = nil
         @entities_by_key = {}
@@ -32,16 +50,25 @@ module ESPHome
         @current_entity = -1
         @sub_active = false
         @name_width = 0
+        @device.device_logger = LoggerWrapper.new(self, level: device_log_level || Logger::DEBUG)
+        @device.connection_logger = LoggerWrapper.new(self, level: connection_log_level || Logger::WARN)
+        @logger = LoggerWrapper.new(self, level: log_level || Logger::INFO)
+        @dump_config = dump_config
+        @winch_trapped = false
+        @logwin = nil
+      end
+
+      Logger::Severity.constants.each do |level|
+        class_eval <<~RUBY, __FILE__, __LINE__ + 1
+          def #{level.downcase}(msg = nil, ...)  # def warn(msg = nil, ...)
+            add(Logger::#{level}, msg, ...)      #   add(Logger::WARN, msg, ...)
+          end                                    # end
+        RUBY
       end
 
       def run
         @device.on_message do |entity_or_log_line|
-          if entity_or_log_line.is_a?(String)
-            log(entity_or_log_line)
-            puts log_line unless @win
-
-            render_log if @win && !@sub_active
-          elsif (entity_wrapper = @entities_by_key[entity_or_log_line.key])
+          if entity_or_log_line.respond_to?(:key) && (entity_wrapper = @entities_by_key[entity_or_log_line.key])
             entity_wrapper.touch
             entity_wrapper.print(@win, active: @current_entity == entity_wrapper.index) unless @sub_active
           end
@@ -51,25 +78,7 @@ module ESPHome
         end
 
         @device.on_connect do
-          unless @win
-            @win = Curses.stdscr
-
-            Signal.trap("SIGWINCH") do
-              render_all
-            end
-
-            Curses.init_screen
-            Curses.noecho
-            Curses.start_color
-            Curses.use_default_colors
-            @win = Curses.stdscr
-            @win.keypad = true
-            Colors::ANSI_COLOR_MAP.each_value do |color|
-              Curses.init_pair(color + 1, color, -1)
-            end
-          end
-
-          log("Connected")
+          logger.info("Connected")
           @name_width = @device.entities.values.map { |e| e.name.length }.max || 0
           @entities_by_key = {}
           @entities = []
@@ -84,17 +93,17 @@ module ESPHome
             @entities_by_key[entity.key] = entity_wrapper
             @entities << entity_wrapper
           end
+          rebuild_logwin if @logwin
 
           @current_entity = @entities.index { |e| e.respond_to?(:activate) } || -1
           render_all
 
           @device.stream_states
-          @device.stream_log(dump_config: true)
+          @device.stream_log(dump_config: @dump_config) if @device.device_logger.level < Logger::FATAL
         end
 
         @device.on_disconnect do
-          log("Gracefully disconnected")
-          render_log
+          logger.info("Gracefully disconnected")
           reconnect
         end
 
@@ -104,15 +113,14 @@ module ESPHome
           Thread.new do
             @device.loop
           rescue IOError, SocketError, SystemCallError, Timeout::Error => e
-            log("Connection lost: #{e}")
-            render_log
+            logger.warn("Connection lost: #{e}")
             @device.disconnect
             reconnect
             retry
           rescue => e
-            log("UNHANDLED EXCEPTION: #{e}")
+            logger.error("UNHANDLED EXCEPTION: #{e}", render: false)
             e.backtrace.each do |line|
-              log("  #{line}")
+              logger.error("  #{line}", render: false)
             end
             render_log
             retry
@@ -156,15 +164,28 @@ module ESPHome
         @device.disconnect
       end
 
-      def log(message)
-        @log_lines << "[#{Time.now.strftime("%H:%M:%S")}] #{message}"
-        @log_lines.shift if @log_lines.size > [20, visible_lines].max
+      def add(_level, message = nil, progname = nil, render: true)
+        if message.nil?
+          message = if block_given?
+                      yield
+                    else
+                      progname
+                    end
+        end
+
+        log_line = "[#{Time.now.strftime("%H:%M:%S")}] #{message}"
+        @log_lines << log_line
+        @log_lines.shift if @log_lines.size > [20, log_area_height].max
+
+        puts log_line unless @win
+        render_log if render && @win && !@sub_active
       end
+      alias_method :log, :add
 
       private
 
       def parse_ansi_and_render(line)
-        @win.clrtoeol
+        @logwin.clrtoeol
         current_color = nil
         current_attr = Curses::A_NORMAL
 
@@ -174,35 +195,73 @@ module ESPHome
             current_color, current_attr = parse_sgr_codes(codes)
           elsif current_color
             pair_id = current_color + 1
-            @win.attron(Curses.color_pair(pair_id) | current_attr) do
-              @win.addstr(part)
+            @logwin.attron(Curses.color_pair(pair_id) | current_attr) do
+              @logwin.addstr(part)
             end
           else
-            @win.attron(current_attr) do
-              @win.addstr(part)
+            @logwin.attron(current_attr) do
+              @logwin.addstr(part)
             end
           end
         end
       end
 
-      def visible_lines
-        @win.maxy - @entities.size - 5
+      def log_area_height
+        return 20 unless @win
+
+        @win.maxy - @entities.size - 4
       end
 
       def render_log
-        visible_lines = self.visible_lines
+        @logwin.clear
+        @logwin.setpos(0, 0)
 
         @log_lines.each_with_index do |log_line, idx|
-          break if idx >= visible_lines
-
-          @win.setpos(@entities.size + 4 + idx, 0)
+          unless idx.zero?
+            if @logwin.cury == @logwin.maxy - 1
+              @logwin.scroll
+              @logwin.setpos(@logwin.cury, 0)
+            else
+              @logwin.setpos(@logwin.cury + 1, 0)
+            end
+          end
 
           parse_ansi_and_render(log_line)
         end
+
+        @logwin.refresh
+      end
+
+      def rebuild_logwin
+        @logwin&.close
+        @logwin = @win.subwin(log_area_height, @win.maxx, @entities.size + 4, 0)
+        @logwin.scrollok(true)
       end
 
       def render_all
+        unless @win
+          unless @winch_trapped
+            @winch_trapped = true
+            Signal.trap(:WINCH) do
+              Curses.close_screen
+              @win = nil
+              render_all
+            end
+          end
+
+          @win = Curses.init_screen
+          Curses.noecho
+          Curses.start_color
+          Curses.use_default_colors
+          @win.keypad = true
+          rebuild_logwin
+          Colors::ANSI_COLOR_MAP.each_value do |color|
+            Curses.init_pair(color + 1, color, -1)
+          end
+        end
+
         @win.clear
+
         @win.setpos(0, 0)
         @win.addstr("ESPHome")
         @win.setpos(1, 0)
@@ -222,7 +281,7 @@ module ESPHome
       def reconnect
         @device.connect
       rescue IOError, SocketError, SystemCallError, Timeout::Error => e
-        log("Failed to reconnect: #{e}")
+        logger.warn("Failed to reconnect: #{e}")
         sleep 1
         retry
       end

@@ -16,11 +16,11 @@ module ESPHome
           begin
             value = Time.parse(value)
           rescue ArgumentError
-            cli.log("Invalid timestamp: #{value}")
+            cli.error("Invalid timestamp: #{value}")
             return
           end
 
-          cli.log("Setting #{object_id_} to #{value.iso8601}")
+          cli.info("Setting #{object_id_} to #{value.iso8601}")
           super
         end
       end

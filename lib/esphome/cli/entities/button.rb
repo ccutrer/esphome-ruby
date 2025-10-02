@@ -9,7 +9,7 @@ module ESPHome
         end
 
         def activate
-          cli.log("Pressing #{object_id_}")
+          cli.info("Pressing #{object_id_}")
           press
         end
       end

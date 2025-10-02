@@ -25,11 +25,11 @@ module ESPHome
           begin
             value = Float(value)
           rescue ArgumentError
-            cli.log("Invalid number: #{value}")
+            cli.error("Invalid number: #{value}")
             return
           end
 
-          cli.log("Setting #{object_id_} to #{formatted_state(value)}")
+          cli.info("Setting #{object_id_} to #{formatted_state(value)}")
           set(value)
         end
       end

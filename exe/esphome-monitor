@@ -1,7 +1,40 @@
 #!/usr/bin/env ruby
 # frozen_string_literal: true
 
+require "optparse"
+
 require "esphome/cli/monitor"
+
+log_level = :info
+connection_log_level = :warn
+device_log_level = :debug
+dump_config = false
+opts = OptionParser.new do |opts|
+  opts.banner = <<~TEXT
+    Usage: esphome-monitor ([<uri>] <device_name> | <address> <encryption_key>)
+
+    Example: esphome-monitor http://localhost:6052/ my_device
+      If URI is omitted, it defaults to http://localhost:6052/
+  TEXT
+
+  opts.on("--connection-log-level=VALUE", "Connection log level") do |v|
+    connection_log_level = v
+  end
+  opts.on("--device-log-level=VALUE", "Device log level") do |v|
+    device_log_level = v
+  end
+  opts.on("--log-level=VALUE", "Monitoring program log level") do |v|
+    log_level = v
+  end
+  opts.on("--dump-config", "Dump device configuration on connect") do
+    dump_config = true
+  end
+  opts.on("-h", "--help", "Show this help message") do
+    puts opts
+    exit
+  end
+end
+opts.parse!
 
 if ARGV.size == 1
   uri = "http://localhost:6052/"
@@ -11,9 +44,7 @@ elsif ARGV.size == 2 && ARGV[0].include?(":")
 elsif ARGV.size == 2
   address, encryption_key = ARGV
 else
-  warn "Usage: esphome-monitor ([<uri>] <device_name> | <address> <encryption_key>)"
-  warn "Example: esphome-monitor http://localhost:6052/ my_device"
-  warn "  If URI is omitted, it defaults to http://localhost:6052/"
+  warn opts
   exit(-1)
 end
 
@@ -36,6 +67,6 @@ if uri
   end
 end
 
-device = ESPHome::Device.new(address, encryption_key, logger: Logger.new(IO::NULL))
+device = ESPHome::Device.new(address, encryption_key)
 
-ESPHome::Cli::Monitor.run(device)
+ESPHome::Cli::Monitor.run(device, connection_log_level:, device_log_level:, log_level:, dump_config:)

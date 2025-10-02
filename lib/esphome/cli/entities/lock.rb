@@ -11,7 +11,7 @@ module ESPHome
         end
 
         def command(command)
-          cli.log("#{command}ing #{object_id_}")
+          cli.info("#{command}ing #{object_id_}")
           super
         end
       end
