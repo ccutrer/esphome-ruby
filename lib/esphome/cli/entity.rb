@@ -33,8 +33,8 @@ module ESPHome
         return unless __getobj__.is_a?(ESPHome::Entity::HasState)
 
         pos = win.cury, win.curx
-        space = " " * [80 - cli.name_width - 3 - 10 - s.length, 1].max
-        win.addstr("#{space}[#{@last_update.strftime("%H:%M:%S")}]")
+        space = " " * [80 - cli.name_width - 3 - 14 - s.length, 1].max
+        win.addstr("#{space}[#{@last_update.strftime("%H:%M:%S.%L")}]")
         win.setpos(*pos)
       end
     end

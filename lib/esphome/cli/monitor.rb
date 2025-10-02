@@ -182,7 +182,7 @@ module ESPHome
                     end
         end
 
-        log_line = "[#{Time.now.strftime("%H:%M:%S")}] #{message}"
+        log_line = "[#{Time.now.strftime("%H:%M:%S.%L")}] #{message}"
         @log_lines << log_line
         @log_lines.shift if @log_lines.size > [20, log_area_height].max
 
