@@ -92,17 +92,16 @@ module ESPHome
       send(Api::HelloRequest.new(client_info: "esphome-ruby",
                                  api_version_major: API_VERSION_MAJOR,
                                  api_version_minor: API_VERSION_MINOR))
-
-      message = read_message
-
-      raise "Unexpected message #{message.inspect}" unless message.is_a?(Api::HelloResponse)
-
       send(Api::AuthenticationRequest.new)
 
       read_messages do |message|
-        next false unless message.is_a?(Api::AuthenticationResponse)
+        if message.is_a?(Api::AuthenticationResponse)
+          raise "Invalid password" if message.invalid_password
 
-        raise "Invalid password" if message.invalid_password
+          next true
+        end
+
+        next false unless message.is_a?(Api::HelloResponse)
 
         break
       end
@@ -110,6 +109,12 @@ module ESPHome
       send(Api::DeviceInfoRequest.new)
 
       read_messages do |message|
+        if message.is_a?(Api::AuthenticationResponse)
+          raise "Invalid password" if message.invalid_password
+
+          next true
+        end
+
         next false unless message.is_a?(Api::DeviceInfoResponse)
 
         @name = message.name
