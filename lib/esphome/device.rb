@@ -93,7 +93,7 @@ module ESPHome
       send(Api::HelloRequest.new(client_info: "esphome-ruby",
                                  api_version_major: API_VERSION_MAJOR,
                                  api_version_minor: API_VERSION_MINOR))
-      send(Api::AuthenticationRequest.new(password:)) if @password
+      send(Api::AuthenticationRequest.new(password: @password)) if @password
 
       read_messages do |message|
         if message.is_a?(Api::AuthenticationResponse)
