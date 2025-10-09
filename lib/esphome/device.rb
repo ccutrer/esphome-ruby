@@ -48,9 +48,10 @@ module ESPHome
                 :suggested_area
     attr_accessor :connection_logger, :device_logger, :connect_timeout, :read_timeout
 
-    def initialize(address, encryption_key, port: 6053)
+    def initialize(address, encryption_key, password: nil, port: 6053)
       @address = address
       @encryption_key = encryption_key.unpack1("m0")
+      @password = password
       @port = port
       @socket = nil
       @connection_logger = nil
@@ -92,7 +93,7 @@ module ESPHome
       send(Api::HelloRequest.new(client_info: "esphome-ruby",
                                  api_version_major: API_VERSION_MAJOR,
                                  api_version_minor: API_VERSION_MINOR))
-      send(Api::AuthenticationRequest.new)
+      send(Api::AuthenticationRequest.new(password:)) if @password
 
       read_messages do |message|
         if message.is_a?(Api::AuthenticationResponse)
