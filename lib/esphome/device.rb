@@ -62,6 +62,7 @@ module ESPHome
       @entities = nil
       @connect_timeout = 5
       @read_timeout = 5
+      @messages_to_replay = []
     end
 
     def connect
@@ -98,30 +99,35 @@ module ESPHome
 
       send(Api::AuthenticationRequest.new)
 
-      message = read_message
+      read_messages do |message|
+        next false unless message.is_a?(Api::AuthenticationResponse)
 
-      raise "Unexpected message #{message.inspect}" unless message.is_a?(Api::AuthenticationResponse)
-      raise "Invalid password" if message.invalid_password
+        raise "Invalid password" if message.invalid_password
+
+        break
+      end
 
       send(Api::DeviceInfoRequest.new)
 
-      message = read_message
-      raise "Unexpected message #{message.inspect}" unless message.is_a?(Api::DeviceInfoResponse)
+      read_messages do |message|
+        next false unless message.is_a?(Api::DeviceInfoResponse)
 
-      @name = message.name
-      @mac_address = message.mac_address
-      @esphome_version = message.esphome_version
-      @compilation_time = message.compilation_time
-      @model = message.model
-      @project_name = message.project_name
-      @project_version = message.project_version
-      @manufacturer = message.manufacturer
-      @friendly_name = message.friendly_name
-      @suggested_area = message.suggested_area
+        @name = message.name
+        @mac_address = message.mac_address
+        @esphome_version = message.esphome_version
+        @compilation_time = message.compilation_time
+        @model = message.model
+        @project_name = message.project_name
+        @project_version = message.project_version
+        @manufacturer = message.manufacturer
+        @friendly_name = message.friendly_name
+        @suggested_area = message.suggested_area
 
-      @entities = nil
+        @entities = nil
 
-      @on_connect_callback&.call
+        @on_connect_callback&.call
+        break
+      end
     end
 
     def disconnect
@@ -134,17 +140,14 @@ module ESPHome
       send(Api::ListEntitiesRequest.new)
 
       @entities = {}
-      Kernel.loop do
-        message = read_message
+      read_messages do |message|
         break if message.is_a?(Api::ListEntitiesDoneResponse)
 
-        unless message.class.respond_to?(:entity_class)
-          connection_logger&.warn("Unrecognized entity #{message.inspect}")
-          next
-        end
+        next false unless message.class.respond_to?(:entity_class)
 
         entity_class = message.class.entity_class
         @entities[message.key] = entity_class.new(self, message)
+        true
       end
       @entities.freeze
     end
@@ -167,7 +170,11 @@ module ESPHome
       Kernel.loop do
         message = nil
         begin
-          message = read_message
+          message = if @messages_to_replay.empty?
+                      read_message
+                    else
+                      @messages_to_replay.shift
+                    end
         rescue Timeout::Error
           send(Api::PingRequest.new) if @noise
           next
@@ -277,6 +284,20 @@ module ESPHome
 
       klass.decode(encoded_message).tap do |message|
         connection_logger&.debug { "< #{message.inspect}" }
+      end
+    end
+
+    # return true from the yield to say you handled it
+    def read_messages
+      prior_messages_to_replay = @messages_to_replay
+      @messages_to_replay = []
+      Kernel.loop do
+        message = if prior_messages_to_replay.empty?
+                    read_message
+                  else
+                    prior_messages_to_replay.shift
+                  end
+        @messages_to_replay << message unless yield message
       end
     end
   end

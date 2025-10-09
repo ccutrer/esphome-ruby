@@ -79,6 +79,8 @@ module ESPHome
             entity_wrapper.print(@win, active: @current_entity == entity_wrapper.index) unless @sub_active
           elsif entity_or_log_line.is_a?(Action)
             logger.info(entity_or_log_line.inspect)
+          else
+            logger.warn("Unexpected message #{entity_or_log_line.inspect}")
           end
           next if !@win || @sub_active
 
