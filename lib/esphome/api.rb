@@ -9,8 +9,8 @@ module ESPHome
     ID_TO_MESSAGE = [nil,
                      HelloRequest,
                      HelloResponse,
-                     ConnectRequest,
-                     ConnectResponse,
+                     AuthenticationRequest,
+                     AuthenticationResponse,
                      DisconnectRequest,
                      DisconnectResponse,
                      PingRequest,
@@ -41,7 +41,7 @@ module ESPHome
                      LightCommandRequest,
                      SwitchCommandRequest,
                      SubscribeHomeassistantServicesRequest,
-                     HomeassistantServiceResponse,
+                     HomeassistantActionRequest,
                      GetTimeRequest,
                      GetTimeResponse,
                      SubscribeHomeAssistantStatesRequest,
@@ -133,7 +133,10 @@ module ESPHome
                      NoiseEncryptionSetKeyRequest,
                      NoiseEncryptionSetKeyResponse,
                      BluetoothScannerStateResponse,
-                     BluetoothScannerSetModeRequest].each_with_index.filter_map do |klass, index|
+                     BluetoothScannerSetModeRequest,
+                     ZWaveProxyFrame,
+                     ZWaveProxyRequest,
+                     HomeassistantActionResponse].each_with_index.filter_map do |klass, index|
       next unless klass
 
       klass.descriptor.define_singleton_method(:id) { index }

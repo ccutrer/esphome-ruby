@@ -96,11 +96,11 @@ module ESPHome
 
       raise "Unexpected message #{message.inspect}" unless message.is_a?(Api::HelloResponse)
 
-      send(Api::ConnectRequest.new)
+      send(Api::AuthenticationRequest.new)
 
       message = read_message
 
-      raise "Unexpected message #{message.inspect}" unless message.is_a?(Api::ConnectResponse)
+      raise "Unexpected message #{message.inspect}" unless message.is_a?(Api::AuthenticationResponse)
       raise "Invalid password" if message.invalid_password
 
       send(Api::DeviceInfoRequest.new)
@@ -183,7 +183,7 @@ module ESPHome
           @on_message_callback&.call(entity)
         elsif message.is_a?(Api::SubscribeLogsResponse)
           device_logger&.log(LOG_LEVEL_MAP[message.level], message.message)
-        elsif message.is_a?(Api::HomeassistantServiceResponse)
+        elsif message.is_a?(Api::HomeassistantActionRequest)
           @on_message_callback&.call(Action.from_protobuf(message))
         elsif message.is_a?(Api::DisconnectRequest)
           send(Api::DisconnectResponse.new)
