@@ -22,11 +22,11 @@ module ESPHome
           @parent = parent
         end
 
-        def add(severity, message = nil, progname = nil, ...)
+        def add(severity, message = nil, progname = nil, *args, **kwargs)
           severity ||= UNKNOWN
           return true if severity < level
 
-          @parent.add(severity, message, progname, ...)
+          @parent.add(severity, message, progname, *args, **kwargs)
         end
         alias_method :log, :add
       end
