@@ -201,11 +201,9 @@ module ESPHome
         elsif message.is_a?(Api::DisconnectRequest)
           send(Api::DisconnectResponse.new)
           disconnected
-          @on_message_callback&.call("Device disconnected")
           @on_disconnect_callback&.call
         elsif message.is_a?(Api::DisconnectResponse)
           disconnected
-          @on_message_callback&.call("Disconnected")
         elsif message.is_a?(Api::PingResponse)
           # Nothing to do
         else
@@ -251,7 +249,7 @@ module ESPHome
 
       @socket.write([PROTOCOL_ENCRYPTED, data.length, data].pack("cnA*"))
     rescue => e
-      @on_message_callback&.call("Error writing to socket: #{e}")
+      connection_logger&.warn("Error writing to socket: #{e}")
       disconnected
       raise
     end
@@ -272,7 +270,7 @@ module ESPHome
     rescue Timeout::Error
       raise
     rescue => e
-      @on_message_callback&.call("Error reading from socket: #{e}")
+      connection_logger&.warn("Error reading from socket: #{e}")
       disconnected
       raise
     end
