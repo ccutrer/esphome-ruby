@@ -2,7 +2,7 @@
 
 module ESPHome
   module Entities
-    class Select < Entity
+    class Text < Entity
       include HasState
 
       attr_reader :length_range, :pattern, :mode
