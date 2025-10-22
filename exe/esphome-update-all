@@ -1,0 +1,66 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+
+uri = "http://localhost:6052/"
+opts = OptionParser.new do |opts|
+  opts.banner = <<~TEXT
+    Usage: esphome-update-all [<uri>] <device_name...>
+
+    Example: esphome-update-all
+      If URI is omitted, it defaults to http://localhost:6052/
+  TEXT
+
+  opts.on("-h", "--help", "Show this help message") do
+    puts opts
+    exit
+  end
+end
+opts.parse!
+
+uri = ARGV.shift if ARGV.first&.include?(":")
+
+require "esphome/dashboard"
+
+dashboard = ESPHome::Dashboard.new(uri)
+
+devices = dashboard.devices
+
+unless ARGV.empty?
+  all_devices = devices
+  devices = []
+  ARGV.each do |device_name|
+    devices.concat(all_devices.select { |d| File.fnmatch(device_name, d["name"]) })
+  end
+  devices.uniq!
+
+  puts "Updating #{devices.map { |d| d["name"] }.join(", ")}..."
+end
+
+if devices.empty?
+  warn "No matching devices found."
+  exit 1
+end
+
+results = dashboard.update_all(devices) do |line|
+  $stdout.print line
+end
+
+puts "\n\n"
+successes, failures = results.partition { |_, v| v }
+
+{
+  Successful: successes,
+  Failed: failures
+}.each do |status, group|
+  next if group.empty?
+
+  puts "#{status} Updates:\n"
+
+  group.each do |device, _| # rubocop:disable Style/HashEachMethods
+    puts "  - #{device["name"]}"
+  end
+end
+
+exit(failures.empty? ? 0 : 1)

@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir["{exe|lib}/**/*"]
   spec.bindir = "exe"
-  spec.executables = ["esphome-monitor"]
+  spec.executables = %w[esphome-monitor esphome-update-all]
   spec.require_paths = ["lib"]
 
   spec.add_dependency "curses", "~> 1.5"
@@ -26,4 +26,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "httpx", "~> 1.5"
   spec.add_dependency "logger", "~> 1.7"
   spec.add_dependency "noise-ruby", "~> 0.10"
+  spec.add_dependency "websocket-driver", "~> 0.8"
 end
