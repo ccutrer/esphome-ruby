@@ -129,9 +129,9 @@ module ESPHome
             reconnect
             retry
           rescue => e
-            logger.error("UNHANDLED EXCEPTION: #{e}", render: false)
+            error("UNHANDLED EXCEPTION: #{e}", render: false)
             e.backtrace.each do |line|
-              logger.error("  #{line}", render: false)
+              error("  #{line}", render: false)
             end
             render_log
             retry
