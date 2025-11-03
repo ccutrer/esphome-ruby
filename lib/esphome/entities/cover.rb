@@ -5,7 +5,6 @@ module ESPHome
     class Cover < Entity
       include HasDeviceClass
       include HasAssumedState
-      include HasState
 
       attr_reader :position, :tilt, :current_operation
 
@@ -37,7 +36,6 @@ module ESPHome
       end
 
       def update(state_response)
-        @state = state_response.legacy_state[19..].downcase.to_sym
         @position = state_response.position if position?
         @tilt = state_response.tilt if tilt?
 
@@ -63,14 +61,12 @@ module ESPHome
 
       def open
         device.send(Api::CoverCommandRequest.new(key:,
-                                                 has_legacy_command: true,
-                                                 legacy_command: :LEGACY_COVER_COMMAND_OPEN))
+                                                 position: 1.0))
       end
 
       def close
         device.send(Api::CoverCommandRequest.new(key:,
-                                                 has_legacy_command: true,
-                                                 legacy_command: :LEGACY_COVER_COMMAND_CLOSE))
+                                                 position: 0.0))
       end
 
       def stop
