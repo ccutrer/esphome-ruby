@@ -27,8 +27,12 @@ module ESPHome
       def formatted_state
         result = if position?
                    "#{position ? position * 100 : "-"}%"
+                 elsif position == 1.0 # rubocop:disable Lint/FloatComparison
+                   "OPEN"
+                 elsif position == 0.0
+                   "CLOSED"
                  else
-                   super
+                   "-"
                  end
         result += " - #{tilt || "-"}%" if tilt?
         result += " (#{current_operation})" if current_operation
@@ -36,7 +40,7 @@ module ESPHome
       end
 
       def update(state_response)
-        @position = state_response.position if position?
+        @position = state_response.position if state_response.position
         @tilt = state_response.tilt if tilt?
 
         @current_operation = if state_response.current_operation == :COVER_OPERATION_IDLE
@@ -61,16 +65,25 @@ module ESPHome
 
       def open
         device.send(Api::CoverCommandRequest.new(key:,
+                                                 has_legacy_command: true,
+                                                 legacy_command: :LEGACY_COVER_COMMAND_OPEN,
+                                                 has_position: true,
                                                  position: 1.0))
       end
 
       def close
         device.send(Api::CoverCommandRequest.new(key:,
+                                                 has_legacy_command: true,
+                                                 legacy_command: :LEGACY_COVER_COMMAND_CLOSE,
+                                                 has_position: true,
                                                  position: 0.0))
       end
 
       def stop
-        device.send(Api::CoverCommandRequest.new(key:, stop: true))
+        device.send(Api::CoverCommandRequest.new(key:,
+                                                 has_legacy_command: true,
+                                                 legacy_command: :LEGACY_COVER_COMMAND_STOP,
+                                                 stop: true))
       end
 
       private

@@ -5,6 +5,15 @@ module ESPHome
     class Climate < Entity
       include HasState
 
+      module Features
+        SUPPORTS_CURRENT_TEMPERATURE = 1 << 0
+        SUPPORTS_TWO_POINT_TARGET_TEMPERATURE = 1 << 1
+        REQUIRES_TWO_POINT_TARGET_TEMPERATURE = 1 << 2
+        SUPPORTS_CURRENT_HUMIDITY = 1 << 3
+        SUPPORTS_TARGET_HUMIDITY = 1 << 4
+        SUPPORTS_ACTION = 1 << 5
+      end
+
       attr_reader :supported_modes,
                   :visual_temperature_range,
                   :visual_target_temperature_step,
