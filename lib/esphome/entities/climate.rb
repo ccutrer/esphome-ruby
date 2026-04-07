@@ -35,13 +35,23 @@ module ESPHome
       def initialize(_device, list_entities_response)
         super
 
-        @supports_current_temperature = list_entities_response.supports_current_temperature
-        @supports_two_point_target_temperature = list_entities_response.supports_two_point_target_temperature
+        if list_entities_response.feature_flags
+          @supports_current_temperature = list_entities_response.feature_flags.anybits?(Features::SUPPORTS_CURRENT_TEMPERATURE)
+          @supports_two_point_target_temperature = list_entities_response.feature_flags.anybits?(Features::SUPPORTS_TWO_POINT_TARGET_TEMPERATURE)
+          @supports_current_humidity = list_entities_response.feature_flags.anybits?(Features::SUPPORTS_CURRENT_HUMIDITY)
+          @supports_target_humidity = list_entities_response.feature_flags.anybits?(Features::SUPPORTS_TARGET_HUMIDITY)
+          @supports_action = list_entities_response.feature_flags.anybits?(Features::SUPPORTS_ACTION)
+        else
+          @supports_current_temperature = list_entities_response.supports_current_temperature
+          @supports_two_point_target_temperature = list_entities_response.supports_two_point_target_temperature
+          @supports_current_humidity = list_entities_response.supports_current_humidity
+          @supports_target_humidity = list_entities_response.supports_target_humidity
+          @supports_action = list_entities_response.supports_action
+        end
         @supported_modes = list_entities_response.supported_modes.map { |m| m[13..].downcase.to_sym }.freeze
         @visual_temperature_range = Range.new(list_entities_response.visual_min_temperature,
                                               list_entities_response.visual_max_temperature)
         @visual_target_temperature_step = list_entities_response.visual_target_temperature_step
-        @supports_action = list_entities_response.supports_action
         @supported_fan_modes = list_entities_response.supported_fan_modes.map { |m| m[12..].downcase.to_sym }
         @supported_swing_modes = list_entities_response.supported_swing_modes.map { |m| m[14..].downcase.to_sym }.freeze
         @supported_fan_modes.concat(list_entities_response.supported_custom_fan_modes.map(&:to_sym))
@@ -52,8 +62,6 @@ module ESPHome
         end
         @supported_presets.concat(list_entities_response.supported_custom_presets.map(&:to_sym))
         @supported_presets.freeze
-        @supports_current_humidity = list_entities_response.supports_current_humidity
-        @supports_target_humidity = list_entities_response.supports_target_humidity
         @visual_humidity_range = Range.new(list_entities_response.visual_min_humidity,
                                            list_entities_response.visual_max_humidity)
       end
