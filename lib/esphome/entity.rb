@@ -91,7 +91,7 @@ module ESPHome
 
     def initialize(device, list_entities_response)
       @device = device
-      @object_id_ = list_entities_response["object_id"]
+      @object_id_ = list_entities_response.name.downcase.tr(" ", "_").gsub(/[^a-z0-9_-]/, "_")
       @key = list_entities_response.key
       @name = list_entities_response.name
       @icon = list_entities_response.icon.empty? ? nil : list_entities_response.icon

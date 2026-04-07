@@ -13,7 +13,7 @@ module ESPHome
     PROTOCOL_PLAINTEXT = 0
     PROTOCOL_ENCRYPTED = 1
     API_VERSION_MAJOR = 1
-    API_VERSION_MINOR = 12
+    API_VERSION_MINOR = 14
 
     LOG_LEVEL_MAP = Hash.new(Logger::UNKNOWN).merge(
       LOG_LEVEL_NONE: Logger::FATAL,
@@ -48,10 +48,9 @@ module ESPHome
                 :suggested_area
     attr_accessor :connection_logger, :device_logger, :connect_timeout, :read_timeout
 
-    def initialize(address, encryption_key, password: nil, port: 6053)
+    def initialize(address, encryption_key, port: 6053)
       @address = address
       @encryption_key = encryption_key.unpack1("m0")
-      @password = password
       @port = port
       @socket = nil
       @connection_logger = nil
@@ -93,7 +92,6 @@ module ESPHome
       send(Api::HelloRequest.new(client_info: "esphome-ruby",
                                  api_version_major: API_VERSION_MAJOR,
                                  api_version_minor: API_VERSION_MINOR))
-      send(Api::AuthenticationRequest.new(password: @password)) if @password
 
       read_messages do |message|
         if message.is_a?(Api::AuthenticationResponse)

@@ -136,7 +136,24 @@ module ESPHome
                      BluetoothScannerSetModeRequest,
                      ZWaveProxyFrame,
                      ZWaveProxyRequest,
-                     HomeassistantActionResponse].each_with_index.filter_map do |klass, index|
+                     HomeassistantActionResponse,
+                     ExecuteServiceResponse,
+                     ListEntitiesWaterHeaterResponse,
+                     WaterHeaterStateResponse,
+                     WaterHeaterCommandRequest,
+                     ListEntitiesInfraredResponse,
+                     InfraredRFTransmitRawTimingsRequest,
+                     InfraredRFReceiveEvent,
+                     SerialProxyConfigureRequest,
+                     SerialProxyDataReceived,
+                     SerialProxyWriteRequest,
+                     SerialProxySetModemPinsRequest,
+                     SerialProxyGetModemPinsRequest,
+                     SerialProxyGetModemPinsResponse,
+                     SerialProxyRequest,
+                     BluetoothSetConnectionParamsRequest,
+                     BluetoothSetConnectionParamsResponse,
+                     SerialProxyRequestResponse].each_with_index.filter_map do |klass, index|
       next unless klass
 
       klass.descriptor.define_singleton_method(:id) { index }
