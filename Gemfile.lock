@@ -1,7 +1,7 @@
 PATH
   remote: .
   specs:
-    esphome (0.5.4)
+    esphome (0.6.0)
       curses (~> 1.5)
       google-protobuf (~> 4.31)
       httpx (~> 1.5)
