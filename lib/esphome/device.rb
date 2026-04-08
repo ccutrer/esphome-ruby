@@ -63,8 +63,8 @@ module ESPHome
       @on_disconnect_callback = nil
       @on_message_callback = nil
       @entities = nil
-      @connect_timeout = 5
-      @read_timeout = 5
+      @connect_timeout = 10
+      @read_timeout = 10
       @messages_to_replay = []
     end
 
@@ -186,6 +186,8 @@ module ESPHome
     def loop
       Kernel.loop do
         message = nil
+        break unless @socket
+
         begin
           message = if @messages_to_replay.empty?
                       read_message

@@ -4,6 +4,7 @@
 require "optparse"
 
 uri = "http://localhost:6052/"
+force = false
 opts = OptionParser.new do |opts|
   opts.banner = <<~TEXT
     Usage: esphome-update-all [<uri>] <device_name...>
@@ -11,6 +12,10 @@ opts = OptionParser.new do |opts|
     Example: esphome-update-all
       If URI is omitted, it defaults to http://localhost:6052/
   TEXT
+
+  opts.on("-f", "--[no-]force", "Force update even if config hash matches") do |v|
+    force = v
+  end
 
   opts.on("-h", "--help", "Show this help message") do
     puts opts
@@ -43,15 +48,17 @@ if devices.empty?
   exit 1
 end
 
-results = dashboard.update_all(devices) do |line|
+results = dashboard.update_all(devices, force:) do |line|
   $stdout.print line
 end
 
 puts "\n\n"
 successes, failures = results.partition { |_, v| v }
+skipped, successes = successes.partition { |_, v| v == :skipped }
 
 {
   Successful: successes,
+  Skipped: skipped,
   Failed: failures
 }.each do |status, group|
   next if group.empty?
