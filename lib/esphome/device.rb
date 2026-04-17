@@ -1,6 +1,8 @@
 # frozen_string_literal: true
 
+require "ipaddr"
 require "noise"
+require "resolv"
 require "socket"
 require "timeout"
 
@@ -68,7 +70,15 @@ module ESPHome
     def connect
       return if @socket
 
-      @socket = TCPSocket.new(address, port, connect_timeout: @connect_timeout)
+      addresses = resolve
+      exception = nil
+      addresses.each do |addrinfo|
+        @socket = addrinfo.connect
+      rescue => e
+        exception = e
+      end
+      raise exception if exception
+
       begin
         # Noise logs warnings about not being able to load algorithms we don't even care about.
         old_level = Noise.logger.level
@@ -234,6 +244,60 @@ module ESPHome
     end
 
     private
+
+    def resolve
+      hosts = Array(address)
+      addresses = []
+      all_hosts = []
+      hosts.each do |host|
+        begin
+          IPAddr.new(host)
+          addresses << Addrinfo.getaddrinfo(host, port, nil, Socket::SOCK_STREAM)
+          next
+        rescue IPAddr::InvalidAddressError
+          # Not an IP address, continue to treat it as a hostname
+        end
+
+        # if we've found any explicit IP addresses, don't bother looking at anything else
+        next unless addresses.empty?
+
+        # try bare hostname as well if the hostname includes ".local". Not strictly correct,
+        # but mDNS might be stale, and other methods work well
+        if host.end_with?(".local")
+          all_hosts << host[..-7]
+        elsif host.end_with?(".local.")
+          all_hosts << host[..-8]
+        end
+        all_hosts << host
+      end
+
+      # if we've found any explicit IP addresses, don't bother doing any lookups
+      return addresses unless addresses.empty?
+
+      return Addrinfo.getaddrinfo(all_hosts.first, port, nil, Socket::SOCK_STREAM) if all_hosts.size == 1
+
+      addresses = Queue.new
+      threads = all_hosts.map do |host|
+        Thread.new do
+          # Resolv doesn't support mDNS (well), so we have to fall back to getaddrinfo, which
+          # may not properly work in parallel because it takes the GIL
+          if host.end_with?(".local", ".local.")
+            addresses << Addrinfo.getaddrinfo(host, port, nil, Socket::SOCK_STREAM)
+          else
+            Resolv.each_address(host) do |addr|
+              addresses << Addrinfo.getaddrinfo(addr, port, nil, Socket::SOCK_STREAM)
+            end
+          end
+        end
+      end
+
+      resolved = addresses.pop
+      threads.each(&:kill)
+      threads.each(&:join)
+
+      resolved.concat(addresses.pop) until addresses.empty?
+      resolved.uniq
+    end
 
     def disconnected
       @socket&.close
