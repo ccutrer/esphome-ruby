@@ -2,6 +2,7 @@
 
 ENV["ESCDELAY"] = "0"
 require "curses"
+require "io/console"
 
 require "esphome"
 
@@ -38,7 +39,7 @@ module ESPHome
         end
       end
 
-      attr_reader :name_width
+      attr_reader :name_width, :win
       attr_accessor :logger
 
       def initialize(device,
@@ -62,6 +63,10 @@ module ESPHome
         @dump_config = dump_config
         @winch_trapped = false
         @logwin = nil
+        @screen_initialized = false
+        @resize_pending = false
+        @ui_events = Queue.new
+        @log_mutex = Mutex.new
       end
 
       Logger::Severity.constants.each do |level|
@@ -76,15 +81,12 @@ module ESPHome
         @device.on_message do |entity_or_log_line|
           if entity_or_log_line.respond_to?(:key) && (entity_wrapper = @entities_by_key[entity_or_log_line.key])
             entity_wrapper.touch
-            entity_wrapper.print(@win, active: @current_entity == entity_wrapper.index) unless @sub_active
+            queue_ui_event(:entity, entity_wrapper)
           elsif entity_or_log_line.is_a?(Action)
             logger.info(entity_or_log_line.inspect)
           else
             logger.warn("Unexpected message #{entity_or_log_line.inspect}")
           end
-          next if !@win || @sub_active
-
-          @win.refresh
         end
 
         @device.on_connect do
@@ -103,10 +105,9 @@ module ESPHome
             @entities_by_key[entity.key] = entity_wrapper
             @entities << entity_wrapper
           end
-          rebuild_logwin if @logwin
 
           @current_entity = @entities.index { |e| e.respond_to?(:activate) } || -1
-          render_all
+          queue_ui_event(:render_all)
 
           @device.stream_states
           @device.stream_actions if @actions
@@ -118,7 +119,10 @@ module ESPHome
           reconnect
         end
 
+        install_winch_handler
         @device.connect
+        ensure_screen
+        process_ui_events
 
         begin
           Thread.new do
@@ -133,17 +137,19 @@ module ESPHome
             e.backtrace.each do |line|
               error("  #{line}", render: false)
             end
-            render_log
+            queue_ui_event(:log)
             retry
           end
 
           loop do
+            process_ui_events
+
             case @win.getch
             when Curses::Key::UP
               new_entity = @entities.reverse.find { |e| e.index < @current_entity && e.respond_to?(:activate) }&.index
               next unless new_entity
 
-              @entities[@current_entity].print(@win)
+              @entities[@current_entity]&.print(@win) if @current_entity >= 0
               @current_entity = new_entity
               @entities[@current_entity].print(@win, active: true)
               @win.refresh
@@ -151,26 +157,23 @@ module ESPHome
               new_entity = @entities.find { |e| e.index > @current_entity && e.respond_to?(:activate) }&.index
               next unless new_entity
 
-              @entities[@current_entity].print(@win)
+              @entities[@current_entity]&.print(@win) if @current_entity >= 0
               @current_entity = new_entity
               @entities[@current_entity].print(@win, active: true)
               @win.refresh
             when "\n".ord
               entity_wrapper = @entities[@current_entity]
-              if entity_wrapper.respond_to?(:activate)
-                @sub_active = true
-                entity_wrapper.activate
-                @sub_active = false
-                render_all
-              end
+              activate_entity(entity_wrapper) if entity_wrapper.respond_to?(:activate)
             when 27 # Esc
               break
+            when nil
+              next
             end
           end
         rescue Interrupt
-          # exitting
+          # exiting
         ensure
-          Curses.close_screen
+          close_screen
         end
         @device.disconnect
       end
@@ -185,13 +188,19 @@ module ESPHome
         end
 
         log_line = "[#{Time.now.strftime("%H:%M:%S.%L")}] #{message}"
-        @log_lines << log_line
-        @log_lines.shift if @log_lines.size > [20, log_area_height].max
+        @log_mutex.synchronize do
+          @log_lines << log_line
+          @log_lines.shift if @log_lines.size > [20, log_area_height].max
+        end
 
-        puts log_line unless @win
-        render_log if render && @win && !@sub_active
+        puts log_line unless @screen_initialized
+        queue_ui_event(:log) if render
       end
       alias_method :log, :add
+
+      def resize_pending?
+        @resize_pending
+      end
 
       private
 
@@ -215,78 +224,189 @@ module ESPHome
             end
           end
         end
+      rescue Curses::Error
+        nil
       end
 
       def log_area_height
         return 20 unless @win
 
-        @win.maxy - @entities.size - 4
+        [@win.maxy - @entities.size - 4, 0].max
       end
 
       def render_log
+        return unless @logwin
+
         @logwin.clear
         @logwin.setpos(0, 0)
 
-        @log_lines.each_with_index do |log_line, idx|
-          unless idx.zero?
-            if @logwin.cury == @logwin.maxy - 1
-              @logwin.scroll
-              @logwin.setpos(@logwin.cury, 0)
-            else
-              @logwin.setpos(@logwin.cury + 1, 0)
+        @log_mutex.synchronize do
+          @log_lines.each_with_index do |log_line, idx|
+            unless idx.zero?
+              if @logwin.cury == @logwin.maxy - 1
+                @logwin.scroll
+                @logwin.setpos(@logwin.cury, 0)
+              else
+                @logwin.setpos(@logwin.cury + 1, 0)
+              end
             end
-          end
 
-          parse_ansi_and_render(log_line)
+            parse_ansi_and_render(log_line)
+          end
         end
 
         @logwin.refresh
+      rescue Curses::Error
+        nil
       end
 
       def rebuild_logwin
         @logwin&.close
-        @logwin = @win.subwin(log_area_height, @win.maxx, @entities.size + 4, 0)
+        @logwin = nil
+
+        height = log_area_height
+        return if height <= 0
+
+        top = @entities.size + 4
+        return if top >= @win.maxy
+
+        @logwin = @win.subwin(height, @win.maxx, top, 0)
         @logwin.scrollok(true)
+      rescue Curses::Error
+        @logwin = nil
       end
 
       def render_all
-        unless @win
-          unless @winch_trapped
-            @winch_trapped = true
-            Signal.trap(:WINCH) do
-              Curses.close_screen
-              @win = nil
-              render_all
-            end
-          end
-
-          @win = Curses.init_screen
-          Curses.noecho
-          Curses.start_color
-          Curses.use_default_colors
-          @win.keypad = true
-          rebuild_logwin
-          Colors::ANSI_COLOR_MAP.each_value do |color|
-            Curses.init_pair(color + 1, color, -1)
-          end
-        end
-
+        ensure_screen
+        rebuild_logwin
         @win.clear
 
-        @win.setpos(0, 0)
-        @win.addstr("ESPHome")
-        @win.setpos(1, 0)
-        @win.addstr("#{@device.friendly_name.ljust(47)} #{@device.esphome_version} - #{@device.compilation_time}")
-        @win.setpos(2, 0)
-        @win.addstr("=" * 80)
+        safe_setpos(@win, 0, 0)
+        safe_addstr(@win, "ESPHome")
+        safe_setpos(@win, 1, 0)
+        left_header = @device.friendly_name.to_s
+        right_header = "#{@device.esphome_version} - #{@device.compilation_time}"
+        safe_addstr(@win, left_header)
+        if right_header.length < @win.maxx
+          safe_setpos(@win, 1, @win.maxx - right_header.length)
+          safe_addstr(@win, right_header)
+        end
+        safe_setpos(@win, 2, 0)
+        safe_addstr(@win, "=" * @win.maxx)
 
         @entities.each do |entity|
-          entity.print(@win, clear_line: false, active: @current_entity == entity.index)
+          entity.print(@win, active: @current_entity == entity.index)
         end
 
         render_log
 
         @win.refresh
+      end
+
+      def ensure_screen
+        return if @screen_initialized && @win
+
+        @win = Curses.init_screen
+        Curses.noecho
+        Curses.start_color
+        Curses.use_default_colors
+        @win.keypad = true
+        @win.timeout = 100
+        Colors::ANSI_COLOR_MAP.each_value do |color|
+          Curses.init_pair(color + 1, color, -1)
+        end
+        @screen_initialized = true
+      end
+
+      def close_screen
+        return unless @screen_initialized
+
+        @logwin&.close
+        @logwin = nil
+        Curses.close_screen
+        @win = nil
+        @screen_initialized = false
+      end
+
+      def install_winch_handler
+        return if @winch_trapped
+
+        @winch_trapped = true
+        Signal.trap(:WINCH) do
+          @resize_pending = true
+        end
+      end
+
+      def process_ui_events
+        if @resize_pending
+          if @screen_initialized
+            rows, cols = IO.console.winsize
+            Curses.resizeterm(rows, cols)
+            @win&.resize(rows, cols)
+            @win&.clear
+          else
+            close_screen
+          end
+          @resize_pending = false
+          queue_ui_event(:render_all)
+        end
+
+        render_all_needed = false
+        log_dirty = false
+        entity_updates = []
+
+        loop do
+          type, payload = @ui_events.pop(true)
+          case type
+          when :entity
+            entity_updates << payload
+          when :log
+            log_dirty = true
+          when :render_all
+            render_all_needed = true
+          end
+        rescue ThreadError
+          break
+        end
+
+        return if @sub_active
+
+        if render_all_needed
+          render_all
+          return
+        end
+
+        return if entity_updates.empty? && !log_dirty
+
+        ensure_screen
+        entity_updates.uniq.each do |entity|
+          entity.print(@win, active: @current_entity == entity.index)
+        end
+        render_log if log_dirty
+        @win.refresh
+      end
+
+      def queue_ui_event(type, payload = nil)
+        @ui_events << [type, payload]
+      end
+
+      def safe_setpos(window, row, column)
+        return if row.negative? || row >= window.maxy || column.negative? || column >= window.maxx
+
+        window.setpos(row, column)
+      rescue Curses::Error
+        nil
+      end
+
+      def safe_addstr(window, string)
+        return if string.nil? || string.empty?
+
+        remaining = window.maxx - window.curx
+        return if remaining <= 0
+
+        window.addstr(string[0, remaining])
+      rescue Curses::Error
+        nil
       end
 
       def reconnect
@@ -295,6 +415,14 @@ module ESPHome
         logger.warn("Failed to reconnect: #{e}")
         sleep 1
         retry
+      end
+
+      def activate_entity(entity_wrapper)
+        @sub_active = true
+        entity_wrapper.activate
+        queue_ui_event(:render_all)
+      ensure
+        @sub_active = false
       end
     end
   end

@@ -18,24 +18,41 @@ module ESPHome
       def touch = @last_update = Time.now
 
       def print(win, clear_line: true, active: false)
-        win.setpos(@index + Monitor::HEADER_ROWS, 0)
+        row = @index + Monitor::HEADER_ROWS
+        return if row >= win.maxy
+
+        win.setpos(row, 0)
         win.clrtoeol if clear_line
-        win.addstr("#{name.ljust(cli.name_width)} : ")
-        s = formatted_state
+        safe_addstr(win, "#{name.ljust(cli.name_width)} : ")
+        state = formatted_state
         if active
-          win.attron(Curses::A_REVERSE)
-          win.addstr(s)
-          win.attroff(Curses::A_REVERSE)
+          win.attron(Curses::A_REVERSE) { safe_addstr(win, state) }
         else
-          win.addstr(s)
+          safe_addstr(win, state)
         end
 
         return unless __getobj__.is_a?(ESPHome::Entity::HasState)
 
-        pos = win.cury, win.curx
-        space = " " * [80 - cli.name_width - 3 - 14 - s.length, 1].max
-        win.addstr("#{space}[#{@last_update.strftime("%H:%M:%S.%L")}]")
-        win.setpos(*pos)
+        timestamp = "[#{@last_update.strftime("%H:%M:%S.%L")}]"
+        return if timestamp.length >= win.maxx
+
+        pos = [win.cury, win.curx]
+        win.setpos(row, win.maxx - timestamp.length)
+        safe_addstr(win, timestamp)
+        win.setpos(*pos) if pos[1] < win.maxx
+      rescue Curses::Error
+        nil
+      end
+
+      private
+
+      def safe_addstr(win, string)
+        return if string.nil? || string.empty?
+
+        remaining = win.maxx - win.curx
+        return if remaining <= 0
+
+        win.addstr(string[0, remaining])
       end
     end
   end

@@ -16,9 +16,8 @@ module ESPHome
           unit_of_measurement
         end
 
-        def activate
-          @field.set_buffer(0, format("%.#{accuracy_decimals}f", state)) if state
-          super
+        def initial_value
+          format("%.#{accuracy_decimals}f", state) if state
         end
 
         def command(value)
