@@ -16,6 +16,8 @@ module ESPHome
       end
 
       def touch = @last_update = Time.now
+      def move_left = nil
+      def move_right = nil
 
       def print(win, clear_line: true, active: false)
         row = @index + Monitor::HEADER_ROWS
@@ -24,12 +26,7 @@ module ESPHome
         win.setpos(row, 0)
         win.clrtoeol if clear_line
         safe_addstr(win, "#{name.ljust(cli.name_width)} : ")
-        state = formatted_state
-        if active
-          win.attron(Curses::A_REVERSE) { safe_addstr(win, state) }
-        else
-          safe_addstr(win, state)
-        end
+        print_state(win, active:)
 
         return unless __getobj__.is_a?(ESPHome::Entity::HasState)
 
@@ -46,6 +43,15 @@ module ESPHome
 
       private
 
+      def print_state(win, active:)
+        state = formatted_state
+        if active
+          win.attron(Curses::A_REVERSE) { safe_addstr(win, state) }
+        else
+          safe_addstr(win, state)
+        end
+      end
+
       def safe_addstr(win, string)
         return if string.nil? || string.empty?
 
@@ -59,6 +65,7 @@ module ESPHome
 end
 
 require_relative "entities/button"
+require_relative "entities/climate"
 require_relative "entities/cover"
 require_relative "entities/date"
 require_relative "entities/date_time"

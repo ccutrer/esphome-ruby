@@ -3,59 +3,79 @@
 module ESPHome
   module Cli
     module Entities
-      class Menu < Entity
-        def activate
-          menu, win = build_menu
+      module MenuPrompt
+        private
+
+        def prompt_menu(title, options, current = nil)
+          content_width = options.map(&:length).max + 4
+          win = build_dialog_window(options.length + 2, content_width, title)
           return unless win
 
-          menu.post
-          win.box(0, 0)
-
+          index = options.index(current) || 0
           loop do
-            break if cli.resize_pending?
+            render_select_options(win, title, options, index)
 
             case win.getch
-            when Curses::Key::DOWN
-              menu.driver(Curses::REQ_NEXT_ITEM)
             when Curses::Key::UP
-              menu.driver(Curses::REQ_PREV_ITEM)
+              index = (index - 1) % options.length
+            when Curses::Key::DOWN
+              index = (index + 1) % options.length
             when "\n".ord
-              command(menu.current_item.name)
-              break
-            when 27, Curses::KEY_RESIZE # Esc
-              break
+              return options[index]
+            when 27, Curses::KEY_RESIZE
+              return nil
             when nil
               next
             end
-          rescue Curses::RequestDeniedError
-            next
           end
         ensure
-          menu&.unpost
           win&.close
+        end
+
+        def render_select_options(win, title, options, index)
+          win.clear
+          win.box(0, 0)
+          win.setpos(0, 2)
+          safe_addstr(win, " #{title} ")
+          options.each_with_index do |option, idx|
+            win.setpos(idx + 1, 2)
+            if idx == index
+              win.attron(Curses::A_REVERSE) { safe_addstr(win, option) }
+            else
+              safe_addstr(win, option)
+            end
+          end
+          win.refresh
+        end
+
+        def build_dialog_window(height, width, title)
+          root = cli.win
+          return unless root
+
+          width = [width, title.length + 6].max
+          return if width > root.maxx || height > root.maxy
+
+          top = (index + Monitor::HEADER_ROWS).clamp(0, root.maxy - height)
+          left = (cli.name_width + 3).clamp(0, root.maxx - width)
+          win = Curses::Window.new(height, width, top, left)
+          win.keypad = true
+          win.timeout = 100
+          win
+        end
+      end
+
+      class Menu < Entity
+        include MenuPrompt
+
+        def activate
+          choice = prompt_menu(menu_title, options)
+          command(choice) if choice
         end
 
         private
 
-        def build_menu
-          root = cli.win
-          return [nil, nil] unless root
-
-          max_width = options.map(&:length).max
-          width = max_width + 5
-          height = options.length + 2
-          return [nil, nil] if width > root.maxx || height > root.maxy
-
-          top = (index + Monitor::HEADER_ROWS).clamp(0, root.maxy - height)
-          left = (cli.name_width + 3).clamp(0, root.maxx - width)
-
-          menu = Curses::Menu.new(options.map { |option| Curses::Item.new(option, "") })
-          win = Curses::Window.new(height, width, top, left)
-          win.keypad = true
-          win.timeout = 100
-          menu.set_win(win)
-          menu.set_sub(win.derwin(options.length, max_width + 2, 1, 2))
-          [menu, win]
+        def menu_title
+          name
         end
       end
     end

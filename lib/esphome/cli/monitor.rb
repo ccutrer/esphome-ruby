@@ -161,6 +161,18 @@ module ESPHome
               @current_entity = new_entity
               @entities[@current_entity].print(@win, active: true)
               @win.refresh
+            when Curses::Key::LEFT
+              next unless @current_entity >= 0
+
+              @entities[@current_entity].move_left
+              @entities[@current_entity].print(@win, active: true)
+              @win.refresh
+            when Curses::Key::RIGHT
+              next unless @current_entity >= 0
+
+              @entities[@current_entity].move_right
+              @entities[@current_entity].print(@win, active: true)
+              @win.refresh
             when "\n".ord
               entity_wrapper = @entities[@current_entity]
               activate_entity(entity_wrapper) if entity_wrapper.respond_to?(:activate)
