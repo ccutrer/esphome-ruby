@@ -1,51 +1,15 @@
 # frozen_string_literal: true
 
 require_relative "form"
-require_relative "menu"
+require_relative "subfields"
 
 module ESPHome
   module Cli
     module Entities
-      class Climate < Entity
-        include MenuPrompt
+      class Climate < Subfields
         include FormPrompt
 
-        def initialize(...)
-          super
-
-          @selected_subfield = 0
-        end
-
-        def move_left
-          return if subfields.size <= 1
-
-          @selected_subfield = (@selected_subfield - 1) % subfields.size
-        end
-
-        def move_right
-          return if subfields.size <= 1
-
-          @selected_subfield = (@selected_subfield + 1) % subfields.size
-        end
-
-        def activate
-          __send__(:"activate_#{subfields.fetch(@selected_subfield, :mode)}")
-        end
-
         private
-
-        def print_state(win, active:)
-          formatted_segments.each_with_index do |segment, idx|
-            safe_addstr(win, " ") unless idx.zero?
-            if active && idx == highlighted_segment_index
-              prefix, value = highlighted_segment_parts(idx, segment)
-              safe_addstr(win, prefix)
-              win.attron(Curses::A_REVERSE) { safe_addstr(win, value) }
-            else
-              safe_addstr(win, segment)
-            end
-          end
-        end
 
         def subfields
           items = [:mode]
@@ -62,65 +26,62 @@ module ESPHome
           items
         end
 
-        def highlighted_segment_index
-          selected_subfield = subfields.fetch(@selected_subfield, :mode)
+        def subfield_segment_indexes
           segment_index = 0
-
-          return segment_index if selected_subfield == :mode
+          indexes = { mode: segment_index }
 
           segment_index += 1 if action?
           segment_index += 1 if current_temperature?
 
           segment_index += 1
-          return segment_index if selected_subfield == :target_temperature
-          return segment_index if two_point_target_temperature? && selected_subfield == :target_temperature_low
-
+          if two_point_target_temperature?
+            indexes[:target_temperature_low] = segment_index
+          else
+            indexes[:target_temperature] = segment_index
+          end
           if two_point_target_temperature?
             segment_index += 1 # literal "-"
             segment_index += 1
-            return segment_index if selected_subfield == :target_temperature_high
+            indexes[:target_temperature_high] = segment_index
           end
 
           unless supported_fan_modes.empty?
             segment_index += 1
-            return segment_index if selected_subfield == :fan_mode
+            indexes[:fan_mode] = segment_index
           end
 
           unless supported_swing_modes.empty?
             segment_index += 1
-            return segment_index if selected_subfield == :swing_mode
+            indexes[:swing_mode] = segment_index
           end
 
           unless supported_presets.empty?
             segment_index += 1
-            return segment_index if selected_subfield == :preset
+            indexes[:preset] = segment_index
           end
 
           segment_index += 1 if current_humidity?
           segment_index += 1 if current_humidity? && target_humidity?
-
-          return unless target_humidity?
-
-          segment_index += 1
-          segment_index if selected_subfield == :target_humidity
+          indexes[:target_humidity] = segment_index + 1 if target_humidity?
+          indexes
         end
 
         def highlighted_segment_parts(idx, segment)
-          active_subfield = subfields.fetch(@selected_subfield, :mode)
+          selected_subfield = active_subfield
 
-          if idx == highlighted_segment_index && active_subfield == :fan_mode
+          if idx == highlighted_segment_index && selected_subfield == :fan_mode
             value = (fan_mode || "-").to_s
-            [formatted_fan_segment.delete_suffix(value), value]
-          elsif idx == highlighted_segment_index && active_subfield == :swing_mode
+            [formatted_fan_segment.delete_suffix(value), value, ""]
+          elsif idx == highlighted_segment_index && selected_subfield == :swing_mode
             value = (swing_mode || "-").to_s
-            [formatted_swing_segment.delete_suffix(value), value]
+            [formatted_swing_segment.delete_suffix(value), value, ""]
           else
-            ["", segment]
+            ["", segment, ""]
           end
         end
 
         def activate_mode
-          choice = prompt_select("Mode", supported_modes.map(&:to_s), state&.to_s)
+          choice = prompt_menu("Mode", supported_modes.map(&:to_s), state&.to_s)
           return unless choice
 
           cli.info("Setting #{object_id_} mode to #{choice}")
@@ -128,7 +89,7 @@ module ESPHome
         end
 
         def activate_fan_mode
-          choice = prompt_select("Fan Mode", supported_fan_modes.map(&:to_s), fan_mode&.to_s)
+          choice = prompt_menu("Fan Mode", supported_fan_modes.map(&:to_s), fan_mode&.to_s)
           return unless choice
 
           cli.info("Setting #{object_id_} fan mode to #{choice}")
@@ -136,7 +97,7 @@ module ESPHome
         end
 
         def activate_swing_mode
-          choice = prompt_select("Swing Mode", supported_swing_modes.map(&:to_s), swing_mode&.to_s)
+          choice = prompt_menu("Swing Mode", supported_swing_modes.map(&:to_s), swing_mode&.to_s)
           return unless choice
 
           cli.info("Setting #{object_id_} swing mode to #{choice}")
@@ -145,7 +106,7 @@ module ESPHome
 
         def activate_preset
           options = supported_presets.map(&:to_s)
-          choice = prompt_select("Preset", options, preset&.to_s)
+          choice = prompt_menu("Preset", options, preset&.to_s)
           return unless choice
 
           cli.info("Setting #{object_id_} preset to #{choice}")
@@ -192,10 +153,6 @@ module ESPHome
 
           cli.info("Setting #{object_id_} target humidity to #{format_humidity(value)}")
           change_target_humidity(value)
-        end
-
-        def prompt_select(title, options, current)
-          prompt_menu(title, options, current)
         end
 
         def prompt_number(title, initial_value:, suffix:, decimals: nil, range: nil)

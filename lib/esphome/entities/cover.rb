@@ -12,6 +12,7 @@ module ESPHome
         super
 
         @supports_position = list_entities_response.supports_position
+        @supports_stop = list_entities_response.supports_stop
         @supports_tilt = list_entities_response.supports_tilt
         @position = @tilt = @current_operation = nil
       end
@@ -24,19 +25,41 @@ module ESPHome
         @supports_tilt
       end
 
+      def stop?
+        @supports_stop
+      end
+
       def formatted_state
-        result = if position?
-                   "#{position ? position * 100 : "-"}%"
-                 elsif position == 1.0 # rubocop:disable Lint/FloatComparison
-                   "OPEN"
-                 elsif position == 0.0
-                   "CLOSED"
-                 else
-                   "-"
-                 end
-        result += " - #{tilt || "-"}%" if tilt?
-        result += " (#{current_operation})" if current_operation
-        result
+        formatted_segments.join(" ")
+      end
+
+      def formatted_segments
+        segments = [formatted_position_segment]
+        if tilt?
+          segments << "-"
+          segments << formatted_tilt_segment
+        end
+        segments << formatted_operation_segment
+      end
+
+      def formatted_position_segment
+        if position?
+          formatted_percentage_segment(position)
+        elsif position == 1.0 # rubocop:disable Lint/FloatComparison
+          "OPEN"
+        elsif position == 0.0
+          "CLOSED"
+        else
+          "-"
+        end
+      end
+
+      def formatted_tilt_segment
+        formatted_percentage_segment(tilt)
+      end
+
+      def formatted_operation_segment
+        "(#{current_operation || "-"})"
       end
 
       def update(state_response)
@@ -87,6 +110,10 @@ module ESPHome
       end
 
       private
+
+      def formatted_percentage_segment(value)
+        "#{value.nil? ? "-" : (value * 100).round}%"
+      end
 
       def inspection_vars
         super + %i[position tilt current_operation]
