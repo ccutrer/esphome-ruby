@@ -1,0 +1,51 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "shellwords"
+require "uri"
+
+require "esphome/dashboard"
+
+dashboard_uri = "http://localhost:6052/"
+
+command = ARGV[0].to_s
+prefix = ARGV[1].to_s
+
+# The ARGV of the full command line
+argv = Shellwords.split(ENV["COMP_LINE"] || "")[1..]
+
+case File.basename(command)
+when "esphome-monitor"
+  multi = false
+when "esphome-update-all"
+  multi = true
+else
+  # unrecognized command
+  exit 0
+end
+
+begin
+  if argv[0]
+    uri = URI.parse(argv[0])
+    if uri.scheme # must be a full URI
+      dashboard_uri = uri.to_s
+      argv.shift
+    end
+  end
+rescue URI::InvalidURIError
+  # If the prior argument isn't a URI, ignore it and use the default.
+end
+
+exit 0 if argv.length > 1 && !multi
+
+begin
+  dashboard = ESPHome::Dashboard.new(dashboard_uri)
+
+  puts dashboard.devices
+                .filter_map { |device| device["name"] }
+                .select { |name| name.start_with?(prefix) }
+                .sort
+rescue HTTPX::Error, IOError, SocketError, SystemCallError, Timeout::Error
+  # Suppress completion errors so bash can continue without noisy failures.
+  exit 0
+end

@@ -83,6 +83,15 @@ These entities can be parsed and state shown, but not have commands sent to them
  * Fan
  * Light
 
+## CLI Completion
+
+You can enable completion of device names (looked up from the ESPHome dashboard) by adding these lines to `.bashrc`:
+
+```bash
+complete -C esphome-completion esphome-monitor
+complete -C esphome-completion esphome-update-all
+```
+
 ## Contributing
 
 Bug reports and pull requests are welcome on GitHub at https://github.com/ccutrer/esphome-ruby.
