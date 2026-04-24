@@ -19,4 +19,10 @@ module ESPHome
   class DashboardError < Error; end
   class NoSuchDeviceError < DashboardError; end
   class MissingEncryptionKeyError < DashboardError; end
+
+  class SerialProxyError < Error; end
+  class NoSuchSerialProxyError < SerialProxyError; end
+  class MissingProxyError < SerialProxyError; end
+  class MissingDeviceError < SerialProxyError; end
+  class UnexpectedMessage < SerialProxyError; end
 end

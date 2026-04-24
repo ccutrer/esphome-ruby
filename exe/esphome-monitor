@@ -59,18 +59,10 @@ end
 if uri
   require "esphome/dashboard"
 
-  dashboard = ESPHome::Dashboard.new(uri)
-
-  device = dashboard.devices.find { |d| d["name"] == device_name }
-  unless device
-    warn "Device not found: #{device_name}"
-    exit 1
-  end
-
-  address = device["address"]
-  encryption_key = dashboard.encryption_key(device["configuration"])
-  unless encryption_key
-    warn "No encryption key found for device #{device_name}"
+  begin
+    address, encryption_key = ESPHome::Dashboard.address_and_encryption_key(uri, device_name)
+  rescue ESPHome::DashboardError => e
+    warn e.message
     exit 1
   end
 end

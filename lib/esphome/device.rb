@@ -8,6 +8,7 @@ require "timeout"
 
 require_relative "api"
 require_relative "error"
+require_relative "serial_proxy"
 
 module ESPHome
   class Device
@@ -48,7 +49,8 @@ module ESPHome
                 :project_version,
                 :manufacturer,
                 :friendly_name,
-                :suggested_area
+                :suggested_area,
+                :serial_proxies
     attr_accessor :connection_logger, :device_logger, :connect_timeout, :read_timeout
 
     def initialize(address, encryption_key, port: 6053)
@@ -59,13 +61,14 @@ module ESPHome
       @connection_logger = nil
       @device_logger = nil
       @noise = nil
-      @on_connect_callback = nil
-      @on_disconnect_callback = nil
-      @on_message_callback = nil
+      @on_connect_callback = []
+      @on_disconnect_callback = []
+      @on_message_callback = []
       @entities = nil
       @connect_timeout = 5
       @read_timeout = 5
       @messages_to_replay = []
+      @serial_proxies = {}.freeze
     end
 
     def connect
@@ -139,16 +142,36 @@ module ESPHome
         @manufacturer = message.manufacturer
         @friendly_name = message.friendly_name
         @suggested_area = message.suggested_area
+        old_proxies = @serial_proxies
+        @serial_proxies = {}
+
+        message.serial_proxies.each_with_index do |proxy, instance|
+          name = proxy.name.freeze
+
+          # keep the same object post-reconnect
+          proxy = old_proxies[name] if old_proxies[name]&.instance == instance
+          proxy = SerialProxy.new(self, name, instance, normalize_serial_proxy_port_type(proxy.port_type))
+
+          @serial_proxies[name] = proxy
+          @serial_proxies[proxy.instance] = proxy
+        end
+        @serial_proxies.freeze
+
+        missing_proxies = old_proxies.values.uniq - @serial_proxies.values
+        missing_proxies.each do |proxy|
+          proxy.instance_variable_set(:@closed, true)
+          proxy.instance_variable_set(:@device, nil)
+        end
 
         @entities = nil
 
-        @on_connect_callback&.call
+        @on_connect_callback.each(&:call)
         break
       end
     end
 
     def disconnect
-      send(Api::DisconnectRequest.new) if @socket && @noise
+      send(Api::DisconnectRequest.new) if connected?
     end
 
     def entities
@@ -183,6 +206,10 @@ module ESPHome
       send(Api::SubscribeHomeassistantServicesRequest.new)
     end
 
+    def connected?
+      !@noise.nil?
+    end
+
     def loop
       Kernel.loop do
         message = nil
@@ -193,7 +220,7 @@ module ESPHome
                       @messages_to_replay.shift
                     end
         rescue Timeout::Error
-          send(Api::PingRequest.new) if @noise
+          send(Api::PingRequest.new) if connected?
           next
         end
 
@@ -204,21 +231,22 @@ module ESPHome
 
         if message.respond_to?(:key) && (entity = @entities[message.key])
           entity.update(message)
-          @on_message_callback&.call(entity)
+          @on_message_callback.each { |callback| callback.call(entity) }
         elsif message.is_a?(Api::SubscribeLogsResponse)
           device_logger&.log(LOG_LEVEL_MAP[message.level], message.message)
         elsif message.is_a?(Api::HomeassistantActionRequest)
-          @on_message_callback&.call(Action.from_protobuf(message))
+          action = Action.from_protobuf(message)
+          @on_message_callback.each { |callback| callback.call(action) }
         elsif message.is_a?(Api::DisconnectRequest)
           send(Api::DisconnectResponse.new)
           disconnected
-          @on_disconnect_callback&.call
+          @on_disconnect_callback.each(&:call)
         elsif message.is_a?(Api::DisconnectResponse)
           disconnected
         elsif message.is_a?(Api::PingResponse)
           # Nothing to do
         else
-          @on_message_callback&.call(message)
+          @on_message_callback.each { |callback| callback.call(message) }
         end
       end
     rescue Interrupt
@@ -227,15 +255,20 @@ module ESPHome
 
     %i[connect disconnect message].each do |callback|
       class_eval <<-RUBY, __FILE__, __LINE__ + 1
-        def on_#{callback}(&block)          # def on_connect(&block)
-          @on_#{callback}_callback = block  #   @on_connect_callback = block
-          self                              #   self
-        end                                 # end
+        def on_#{callback}(&block)               # def on_connect(&block)
+          @on_#{callback}_callback << block      #   @on_connect_callback << block
+          block                                  #   block
+        end                                      # end
+                                                 #
+        def skip_#{callback}(&block)             # def skip_connect_callback(&block)
+          @on_#{callback}_callback.delete(block) #   @on_connect_callback.delete(block)
+          self                                   # end
+        end
       RUBY
     end
 
     def send(message)
-      raise "Encryption not yet set up" unless @noise
+      raise NotConnectedError, "Encryption not yet set up" unless connected?
 
       connection_logger&.debug { "> #{message.inspect}" }
       serialized_message = message.to_proto
@@ -247,6 +280,10 @@ module ESPHome
     end
 
     private
+
+    def normalize_serial_proxy_port_type(port_type)
+      port_type.to_s.delete_prefix("SERIAL_PROXY_PORT_TYPE_").downcase.to_sym
+    end
 
     def resolve
       hosts = Array(address)

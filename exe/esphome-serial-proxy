@@ -1,0 +1,118 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "io/console"
+require "optparse"
+
+require "esphome/serial_proxy"
+
+baud = nil
+data_bits = nil
+parity = nil
+stop_bits = nil
+
+opts = OptionParser.new do |opts|
+  opts.banner = <<~TEXT
+    Usage: esphome-serial-proxy ([<uri>] <device_name> [instance] | <address> <encryption_key> [instance])
+
+    Examples:
+      esphome-serial-proxy my_device
+      esphome-serial-proxy http://localhost:6052/ my_device uart0
+      esphome-serial-proxy 192.168.1.10 BASE64_ENCRYPTION_KEY 1
+  TEXT
+
+  opts.on("--baud=VALUE", Integer, "Serial baud rate") do |value|
+    baud = value
+  end
+  opts.on("--data-bits=VALUE", Integer, "Serial data bits") do |value|
+    data_bits = value
+  end
+  opts.on("--parity=VALUE", "Serial parity (`none`, `even`, or `odd`)") do |value|
+    parity = value.to_sym
+  end
+  opts.on("--stop-bits=VALUE", Integer, "Serial stop bits") do |value|
+    stop_bits = value
+  end
+  opts.on("-h", "--help", "Show this help message") do
+    puts opts
+    exit
+  end
+end
+opts.parse!
+
+dashboard_uri = nil
+device_name = nil
+address = nil
+encryption_key = nil
+instance = nil
+
+if ARGV.size == 1
+  dashboard_uri = "http://localhost:6052/"
+  device_name = ARGV[0]
+elsif ARGV.size == 2 && ARGV[0].include?(":")
+  dashboard_uri, device_name = ARGV
+elsif ARGV.size == 2
+  address, encryption_key = ARGV
+elsif ARGV.size == 3 && ARGV[0].include?(":")
+  dashboard_uri, device_name, instance = ARGV
+elsif ARGV.size == 3
+  address, encryption_key, instance = ARGV
+else
+  warn opts
+  exit(-1)
+end
+
+if dashboard_uri
+  require "esphome/dashboard"
+
+  begin
+    address, encryption_key = ESPHome::Dashboard.address_and_encryption_key(dashboard_uri, device_name)
+  rescue ESPHome::DashboardError => e
+    warn e.message
+    exit 1
+  end
+end
+
+stdin_thread = nil
+session = proc do
+  $stdin.binmode
+  $stdout.binmode
+  $stderr.binmode
+  $stdout.sync = true
+
+  ESPHome::SerialProxy.open(address,
+                            encryption_key,
+                            instance,
+                            baud:,
+                            data_bits:,
+                            parity:,
+                            stop_bits:) do |proxy|
+    stdin_thread = Thread.new do
+      Kernel.loop do
+        chunk = $stdin.readpartial(64 * 1024)
+        proxy.write(chunk)
+      end
+    rescue EOFError
+      nil
+    end
+
+    begin
+      Kernel.loop do
+        $stdout.write(proxy.readpartial(64 * 1024))
+      end
+    rescue EOFError
+      nil
+    ensure
+      stdin_thread.kill if stdin_thread&.alive?
+      stdin_thread&.join
+    end
+  end
+end
+
+if $stdin.tty?
+  $stdin.raw do
+    session.call
+  end
+else
+  session.call
+end

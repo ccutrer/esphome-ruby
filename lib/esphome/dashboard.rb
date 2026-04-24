@@ -1,9 +1,24 @@
 # frozen_string_literal: true
 
 require "httpx"
+require_relative "error"
 
 module ESPHome
   class Dashboard
+    class << self
+      def address_and_encryption_key(uri, device_name)
+        dashboard = uri.is_a?(Dashboard) ? uri : new(uri)
+        device = dashboard.devices.find { |d| d["name"] == device_name }
+        raise NoSuchDeviceError, "Device not found: #{device_name}" unless device
+
+        address = device["address"]
+        encryption_key = dashboard.encryption_key(device["configuration"])
+        raise MissingEncryptionKeyError, "No encryption key found for device #{device_name}" unless encryption_key
+
+        [address, encryption_key]
+      end
+    end
+
     def initialize(uri)
       @http = HTTPX.plugin(:persistent).with(origin: uri)
       @websocket = nil

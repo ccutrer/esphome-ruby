@@ -9,6 +9,7 @@ module ESPHome
         klass.attr_reader :state
       end
 
+      # @!visibility private
       def initialize(...)
         super
         @state = nil
@@ -36,6 +37,7 @@ module ESPHome
         klass.attr_reader :assumed_state
       end
 
+      # @!visibility private
       def initialize(_device, list_entities_response)
         super
 
@@ -64,6 +66,7 @@ module ESPHome
         klass.attr_reader :device_class
       end
 
+      # @!visibility private
       def initialize(_device, list_entities_response)
         super
 
@@ -89,6 +92,7 @@ module ESPHome
                 :disabled_by_default,
                 :entity_category
 
+    # @!visibility private
     def initialize(device, list_entities_response)
       @device = device
       @object_id_ = list_entities_response.name.downcase.tr(" ", "_").gsub(/[^a-z0-9_-]/, "_")
@@ -99,6 +103,7 @@ module ESPHome
       @entity_category = list_entities_response.entity_category[16..].downcase.to_sym
     end
 
+    # @return [String]
     def inspect
       vars = inspection_vars.filter_map do |var|
         val = __send__(var)
