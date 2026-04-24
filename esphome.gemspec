@@ -11,7 +11,7 @@ Gem::Specification.new do |spec|
   spec.summary = "ESPHome Library and CLI for Ruby"
   spec.homepage = "https://github.com/ccutrer/esphome-ruby"
   spec.license = "MIT"
-  spec.required_ruby_version = ">= 3.1.0"
+  spec.required_ruby_version = ">= 3.3"
 
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["rubygems_mfa_required"] = "true"
