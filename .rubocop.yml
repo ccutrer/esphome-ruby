@@ -1,6 +1,7 @@
 inherit_gem:
   rubocop-inst:
   - rubocop.yml
+  - rubocop-rspec.yml
 
 plugins:
   - rubocop-rake
@@ -12,3 +13,11 @@ AllCops:
 
 Style/Documentation:
   Enabled: false
+
+Style/SpecialGlobalVars:
+  Exclude:
+  - $CHILD_STATUS
+
+RSpec/SpecFilePathFormat:
+  CustomTransform:
+    ESPHome: esphome
