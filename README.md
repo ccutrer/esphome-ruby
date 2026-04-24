@@ -64,6 +64,30 @@ WiFi Signal Strength        : -72 dBm                                 [14:30:34]
 [14:30:30] [I][i2c.idf:110]: Found device at address 0x44
 ```
 
+## Serial Proxy
+
+Serial proxies are supported. You can either use the `esphome-serial-proxy` command to connect directly to an ESPHome device and connect stdin/stdout to the serial port, or you can use it from a Ruby library to obtain an `IO`-like interface:
+
+```ruby
+gem "esphome", "~> 1.1"
+require "esphome/serial_proxy"
+io = ESPHome::SerialProxy.open("device", "encryption_key", baud: 4800, data_bits: 8, parity: :odd, stop_bits: 1)
+io.write("some_data")
+io.readpartial(64)
+io.close
+# OR
+io = ESPHome::SerialProxy.open(URI.parse("esphome://:encryption_key@device/"), baud: 4800, data_bits: 8, parity: :odd, stop_bits: 1)
+io.write("some_data")
+io.readpartial(64)
+io.close
+# OR
+ESPHome::SerialProxy.open("device", "encryption_key", "uart_instance_name", baud: 115_200) do |io|
+  io.write("ATI\r")
+  io.flush
+  io.close
+end
+```
+
 ## Unsupported Entities
 
  * Alarm Control Panel
@@ -88,6 +112,7 @@ You can enable completion of device names (looked up from the ESPHome dashboard)
 
 ```bash
 complete -C esphome-monitor esphome-monitor
+complete -C esphome-serial-proxy esphome-serial-proxy
 ```
 
 ## Contributing
