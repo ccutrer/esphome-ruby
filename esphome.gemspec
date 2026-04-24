@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
   spec.metadata["homepage_uri"] = spec.homepage
   spec.metadata["rubygems_mfa_required"] = "true"
 
-  spec.files = Dir["{exe|lib}/**/*"]
+  spec.files = Dir["{exe,lib}/**/*"]
   spec.bindir = "exe"
   spec.executables = %w[esphome-completion esphome-monitor esphome-update-all]
   spec.require_paths = ["lib"]
