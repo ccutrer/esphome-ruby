@@ -92,10 +92,9 @@ module ESPHome
       noise.start_handshake
 
       write_frame("")
+      write_frame("\0#{noise.write_message}")
 
       _device_id = read_frame
-
-      write_frame("\0#{noise.write_message}")
       noise.read_message(read_frame[1..])
       @noise = noise
 
