@@ -10,6 +10,7 @@ log_level = :info
 connection_log_level = :warn
 device_log_level = :debug
 dump_config = false
+port = 6053
 opts = OptionParser.new do |opts|
   opts.banner = <<~TEXT
     Usage: esphome-monitor ([<uri>] <device_name> | <address> <encryption_key>)
@@ -18,6 +19,9 @@ opts = OptionParser.new do |opts|
       If URI is omitted, it defaults to http://localhost:6052/
   TEXT
 
+  opts.on("--port=VALUE", Integer, "Device port to connect to (default 6053)") do |value|
+    port = value
+  end
   opts.on("--[no-]actions", "Subscribe to Home Assistant actions (default on)") do |v|
     actions = v
   end
@@ -71,6 +75,6 @@ if uri
   end
 end
 
-device = ESPHome::Device.new(address, encryption_key)
+device = ESPHome::Device.new(address, encryption_key, port:)
 
 ESPHome::Cli::Monitor.run(device, connection_log_level:, device_log_level:, log_level:, actions:, dump_config:)
