@@ -15,7 +15,7 @@ jobs:
       - name: Set up Ruby
         uses: ruby/setup-ruby@v1
         with:
-          ruby-version: 3.2
+          ruby-version: 3.3
           bundler-cache: true
       - name: Run RuboCop
         run: bin/rubocop
@@ -26,8 +26,6 @@ jobs:
     strategy:
       matrix:
         ruby:
-          - 3.1
-          - 3.2
           - 3.3
           - 3.4
           - '4.0'
