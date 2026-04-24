@@ -2,7 +2,7 @@
 
 module ESPHome
   module Entities
-    class Date < Entity
+    class Time < Entity
       include HasState
 
       def update(state_response)

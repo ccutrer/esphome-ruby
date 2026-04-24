@@ -9,7 +9,7 @@ module ESPHome
         @state = if state_response.missing_state
                    nil
                  else
-                   Time.at(state_response.epoch_seconds)
+                   ::Time.at(state_response.epoch_seconds)
                  end
       end
 

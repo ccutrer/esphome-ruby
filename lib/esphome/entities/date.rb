@@ -9,9 +9,9 @@ module ESPHome
         @state = if state_response.missing_state
                    nil
                  else
-                   Date.new(state_response.year,
-                            date_response.month,
-                            date_response.day)
+                   ::Date.new(state_response.year,
+                              state_response.month,
+                              state_response.day)
                  end
       end
 
