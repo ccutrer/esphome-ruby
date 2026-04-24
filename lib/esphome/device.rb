@@ -7,6 +7,7 @@ require "socket"
 require "timeout"
 
 require_relative "api"
+require_relative "error"
 
 module ESPHome
   class Device
@@ -77,7 +78,10 @@ module ESPHome
       rescue => e
         exception = e
       end
-      raise exception if exception
+      if exception
+        raise DeviceConnectionError,
+              "Unable to connect to #{Array(address).join(", ")}:#{port}: #{exception.message}"
+      end
 
       begin
         # Noise logs warnings about not being able to load algorithms we don't even care about.
@@ -104,7 +108,7 @@ module ESPHome
 
       read_messages do |message|
         if message.is_a?(Api::AuthenticationResponse)
-          raise "Invalid password" if message.invalid_password
+          raise InvalidPasswordError, "Invalid password" if message.invalid_password
 
           next true
         end
@@ -118,7 +122,7 @@ module ESPHome
 
       read_messages do |message|
         if message.is_a?(Api::AuthenticationResponse)
-          raise "Invalid password" if message.invalid_password
+          raise InvalidPasswordError, "Invalid password" if message.invalid_password
 
           next true
         end
@@ -306,7 +310,7 @@ module ESPHome
     end
 
     def write_frame(data)
-      raise "Not connected" unless @socket
+      raise NotConnectedError, "Not connected" unless @socket
 
       @socket.write([PROTOCOL_ENCRYPTED, data.length, data].pack("cnA*"))
     rescue => e
@@ -316,15 +320,15 @@ module ESPHome
     end
 
     def read_frame
-      raise "Not connected" unless @socket
+      raise NotConnectedError, "Not connected" unless @socket
 
       @socket.wait_readable(@read_timeout) or raise Timeout::Error
       header = @socket.read(3)
-      raise "No data" if header.nil?
+      raise ConnectionClosedError, "No data" if header.nil?
 
       type, length = header.unpack("cn")
-      raise "Plaintext protocol not supported" if type == PROTOCOL_PLAINTEXT
-      raise "Unrecognized protocol #{type}" unless type == PROTOCOL_ENCRYPTED
+      raise PlaintextProtocolError, "Plaintext protocol not supported" if type == PROTOCOL_PLAINTEXT
+      raise UnknownProtocolError, "Unrecognized protocol #{type}" unless type == PROTOCOL_ENCRYPTED
 
       @socket.wait_readable(@read_timeout) or raise Timeout::Error
       @socket.read(length)
@@ -341,11 +345,11 @@ module ESPHome
       decrypted_message = @noise.decrypt(encrypted_message)
       id, length, encoded_message = decrypted_message.unpack("nna*")
       if length != encoded_message.length
-        raise "Unexpected message length #{encoded_message.length}; expected #{length}"
+        raise InvalidMessageLengthError, "Unexpected message length #{encoded_message.length}; expected #{length}"
       end
 
       klass = Api::ID_TO_MESSAGE[id]
-      raise "Unrecognized message id #{id}" unless klass
+      raise UnknownMessageError, "Unrecognized message id #{id}" unless klass
 
       klass.decode(encoded_message).tap do |message|
         connection_logger&.debug { "< #{message.inspect}" }
