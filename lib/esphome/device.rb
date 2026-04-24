@@ -251,7 +251,7 @@ module ESPHome
       hosts.each do |host|
         begin
           IPAddr.new(host)
-          addresses << Addrinfo.getaddrinfo(host, port, nil, Socket::SOCK_STREAM)
+          addresses.concat(Addrinfo.getaddrinfo(host, port, nil, Socket::SOCK_STREAM))
           next
         rescue IPAddr::InvalidAddressError
           # Not an IP address, continue to treat it as a hostname
