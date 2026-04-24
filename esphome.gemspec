@@ -18,7 +18,7 @@ Gem::Specification.new do |spec|
 
   spec.files = Dir["{exe,lib}/**/*"]
   spec.bindir = "exe"
-  spec.executables = %w[esphome-monitor]
+  spec.executables = %w[esphome-monitor esphome-serial-proxy]
   spec.require_paths = ["lib"]
 
   spec.add_dependency "curses", "~> 1.5"

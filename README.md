@@ -64,6 +64,16 @@ WiFi Signal Strength        : -72 dBm                                 [14:30:34]
 [14:30:30] [I][i2c.idf:110]: Found device at address 0x44
 ```
 
+Serial proxy components can also be opened through an IO-like wrapper:
+
+```ruby
+ESPHome::SerialProxy.open("esphome://device/", baud: 115_200) do |io|
+  io.write("ATI\r")
+  io.flush
+  io.close
+end
+```
+
 ## Unsupported Entities
 
  * Alarm Control Panel
