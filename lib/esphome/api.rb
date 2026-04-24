@@ -99,7 +99,7 @@ module ESPHome
                      VoiceAssistantRequest,
                      VoiceAssistantResponse,
                      VoiceAssistantEventResponse,
-                     BluetoothLEAdvertisementResponse,
+                     BluetoothLERawAdvertisementsResponse,
                      ListEntitiesAlarmControlPanelResponse,
                      AlarmControlPanelStateResponse,
                      AlarmControlPanelCommandRequest,
