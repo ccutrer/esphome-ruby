@@ -18,7 +18,7 @@ module ESPHome
         @supports_speed = list_entities_response.supports_speed
         @speed_count = list_entities_response.supported_speed_count if speed?
         @speed_count = 3 if speed_count.zero? && speed?
-        @preset_modes = list_entities_response.preset_modes.map(&:freeze).freeze
+        @preset_modes = list_entities_response.supported_preset_modes.map(&:freeze).freeze
 
         @oscillating = @speed = @direction = @preset_mode = nil
       end
