@@ -291,6 +291,7 @@ tmp_dir = nil
 RSpec.configure do |config|
   config.before(:suite) do
     next unless has_esphome_exe
+    next if host_device_groups.empty?
 
     tmp_dir = File.join(__dir__, "../../tmp")
     FileUtils.mkdir_p(tmp_dir)
