@@ -21,3 +21,5 @@ Style/SpecialGlobalVars:
 RSpec/SpecFilePathFormat:
   CustomTransform:
     ESPHome: esphome
+RSpec/SubjectStub:
+  Enabled: false

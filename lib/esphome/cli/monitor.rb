@@ -127,7 +127,7 @@ module ESPHome
         begin
           Thread.new do
             @device.loop
-          rescue IOError, SocketError, SystemCallError, Timeout::Error => e
+          rescue DeviceConnectionError, NotConnectedError, IOError, SocketError, SystemCallError, Timeout::Error => e
             logger.warn("Connection lost: #{e}")
             @device.disconnect
             reconnect
@@ -423,7 +423,7 @@ module ESPHome
 
       def reconnect
         @device.connect
-      rescue IOError, SocketError, SystemCallError, Timeout::Error => e
+      rescue DeviceConnectionError, NotConnectedError, IOError, SocketError, SystemCallError, Timeout::Error => e
         logger.warn("Failed to reconnect: #{e}")
         sleep 1
         retry

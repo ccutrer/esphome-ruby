@@ -148,7 +148,17 @@ module ESPHome
     end
 
     def disconnect
-      send(Api::DisconnectRequest.new) if @socket && @noise
+      return unless connected?
+
+      send(Api::DisconnectRequest.new)
+    rescue DeviceConnectionError, NotConnectedError, IOError, SocketError, SystemCallError
+      nil
+    ensure
+      disconnected
+    end
+
+    def connected?
+      !!(@socket && @noise)
     end
 
     def entities
