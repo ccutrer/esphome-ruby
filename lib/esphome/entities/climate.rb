@@ -135,13 +135,13 @@ module ESPHome
       def formatted_segments
         segments = [state.nil? ? "-" : state.to_s]
         segments << "(#{action || "-"})" if action?
-        segments << "#{current_temperature || "-"} °C /" if current_temperature?
+        segments << "#{format_temperature(current_temperature)} /" if current_temperature?
         if two_point_target_temperature?
-          segments << formatted_target_low_segment
+          segments << format_temperature(target_temperature_low)
           segments << "-"
-          segments << formatted_target_high_segment
+          segments << format_temperature(target_temperature_high)
         else
-          segments << formatted_target_segment
+          segments << format_temperature(target_temperature)
         end
         segments << "fan: #{fan_mode || "-"}" unless supported_fan_modes.empty?
         segments << "swing: #{swing_mode || "-"}" unless supported_swing_modes.empty?
@@ -150,18 +150,6 @@ module ESPHome
         segments << "/" if current_humidity? && target_humidity?
         segments << "#{target_humidity || "-"} %RH" if target_humidity?
         segments
-      end
-
-      def formatted_target_segment
-        "#{target_temperature || "-"} °C"
-      end
-
-      def formatted_target_low_segment
-        "#{target_temperature_low || "-"} °C"
-      end
-
-      def formatted_target_high_segment
-        "#{target_temperature_high || "-"} °C"
       end
 
       def formatted_fan_segment
