@@ -3,7 +3,13 @@
 
 require "optparse"
 
+require "esphome/cli/completion"
 require "esphome/cli/monitor"
+
+if ENV["COMP_LINE"]
+  ESPHome::Cli::Completion.run
+  exit
+end
 
 actions = true
 log_level = :info
@@ -45,7 +51,7 @@ end
 opts.parse!
 
 if ARGV.size == 1
-  uri = "http://localhost:6052/"
+  uri = ESPHome::Dashboard::DEFAULT_URI
   device_name = ARGV[0]
 elsif ARGV.size == 2 && ARGV[0].include?(":")
   uri, device_name = ARGV

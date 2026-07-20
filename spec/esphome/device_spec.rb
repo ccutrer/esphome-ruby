@@ -18,8 +18,9 @@ RSpec.describe ESPHome::Device do
     end
 
     it "clears connection state when the socket is lost before the disconnect request is sent" do
-      device.instance_variable_set(:@socket, instance_double(TCPSocket, close: nil))
-      device.instance_variable_set(:@noise, instance_double(Noise::Connection::Initiator))
+      socket = instance_double(TCPSocket, close: nil)
+      device.instance_variable_set(:@socket, socket)
+      device.instance_variable_set(:@noise, Object.new)
 
       expect(device).to be_connected
       expect(device).to receive(:send).with(instance_of(ESPHome::Api::DisconnectRequest)).and_raise(

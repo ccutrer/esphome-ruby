@@ -4,6 +4,8 @@ require "httpx"
 
 module ESPHome
   class Dashboard
+    DEFAULT_URI = "http://localhost:6052/"
+
     def initialize(uri)
       @http = HTTPX.plugin(:persistent).with(origin: uri)
       @websocket = nil
@@ -34,12 +36,6 @@ module ESPHome
 
     def update(configuration, port: :ota, &)
       compile(configuration, &) && upload(configuration, port:, &)
-    end
-
-    def update_all(devices = self.devices, &)
-      devices.to_h do |device|
-        [device, update(device["configuration"], &)]
-      end
     end
 
     private

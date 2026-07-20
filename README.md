@@ -77,9 +77,8 @@ WiFi Signal Strength        : -72 dBm                                 [14:30:34]
 
 ## Partially Supported Entities
 
-These entities can be parsed and state shown, but not have commands sent to them:
+These entities can be parsed and state shown, but not have all possible commands sent to them:
 
- * Climate
  * Fan
  * Light
 
@@ -88,8 +87,7 @@ These entities can be parsed and state shown, but not have commands sent to them
 You can enable completion of device names (looked up from the ESPHome dashboard) by adding these lines to `.bashrc`:
 
 ```bash
-complete -C esphome-completion esphome-monitor
-complete -C esphome-completion esphome-update-all
+complete -C esphome-monitor esphome-monitor
 ```
 
 ## Contributing
