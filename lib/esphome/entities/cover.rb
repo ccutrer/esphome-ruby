@@ -112,7 +112,13 @@ module ESPHome
       private
 
       def formatted_percentage_segment(value)
-        "#{value.nil? ? "-" : (value * 100).round}%"
+        "#{if value.nil?
+             "_"
+           elsif value.finite?
+             (value * 100).round
+           else
+             value
+           end}%"
       end
 
       def inspection_vars

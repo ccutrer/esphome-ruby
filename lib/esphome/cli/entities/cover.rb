@@ -72,7 +72,7 @@ module ESPHome
         end
 
         def prompt_percentage(title, value)
-          initial_value = format("%d", (value * 100).round) if value
+          initial_value = format("%d", (value * 100).round) if value.finite?
           choice = prompt_form(title,
                                initial_value:,
                                suffix: "%",
