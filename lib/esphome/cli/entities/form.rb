@@ -32,6 +32,8 @@ module ESPHome
               form.driver(Curses::REQ_PREV_CHAR)
             when Curses::KEY_BACKSPACE
               form.driver(Curses::REQ_DEL_PREV)
+            when Curses::KEY_DC
+              form.driver(Curses::REQ_DEL_CHAR)
             when "\n".ord
               form.driver(Curses::REQ_VALIDATION)
               value = field.buffer(0).strip
