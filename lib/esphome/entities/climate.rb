@@ -17,6 +17,11 @@ module ESPHome
                                                .map { |value| value[15..].downcase.to_sym }
                                                .freeze
       private_constant :BASE_PRESETS
+      UNIT_SYMBOLS = {
+        celsius: "°C",
+        fahrenheit: "°F",
+        kelvin: "K"
+      }.freeze
 
       module Features
         SUPPORTS_CURRENT_TEMPERATURE = 1 << 0
@@ -43,7 +48,8 @@ module ESPHome
                   :swing_mode,
                   :preset,
                   :current_humidity,
-                  :target_humidity
+                  :target_humidity,
+                  :temperature_unit
 
       def initialize(_device, list_entities_response)
         super
@@ -77,6 +83,7 @@ module ESPHome
         @supported_presets.freeze
         @visual_humidity_range = Range.new(list_entities_response.visual_min_humidity,
                                            list_entities_response.visual_max_humidity)
+        @temperature_unit = list_entities_response.temperature_unit&.[](17..)&.downcase&.to_sym || :celsius
       end
 
       def current_temperature?
@@ -174,13 +181,17 @@ module ESPHome
       def format_temperature(value)
         return "-" if value.nil?
 
-        format("%.#{temperature_decimals}f °C", value)
+        format("%.#{temperature_decimals}f #{unit_symbol}", value)
       end
 
       def format_humidity(value)
         return "-" if value.nil?
 
         format("%.0f %%RH", value)
+      end
+
+      def unit_symbol
+        UNIT_SYMBOLS[temperature_unit]
       end
 
       def change_mode(mode)

@@ -116,7 +116,7 @@ module ESPHome
         def activate_target_temperature
           value = prompt_number("Target Temperature",
                                 initial_value: target_temperature,
-                                suffix: "°C")
+                                suffix: unit_symbol)
           return unless value
 
           cli.info("Setting #{object_id_} target to #{format_temperature(value)}")
@@ -126,7 +126,7 @@ module ESPHome
         def activate_target_temperature_low
           value = prompt_number("Target Low",
                                 initial_value: target_temperature_low,
-                                suffix: "°C")
+                                suffix: unit_symbol)
           return unless value
 
           cli.info("Setting #{object_id_} target low to #{format_temperature(value)}")
@@ -136,7 +136,7 @@ module ESPHome
         def activate_target_temperature_high
           value = prompt_number("Target High",
                                 initial_value: target_temperature_high,
-                                suffix: "°C")
+                                suffix: unit_symbol)
           return unless value
 
           cli.info("Setting #{object_id_} target high to #{format_temperature(value)}")
