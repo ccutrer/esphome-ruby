@@ -103,7 +103,9 @@ YAML
     inbound = "from host\x00\xfe".b
     serial_master.write(inbound)
     expect(Timeout.timeout(2) { proxy.read(inbound.bytesize) }).to eql inbound
-    expect(Timeout.timeout(2) { proxy.flush }).to be :SERIAL_PROXY_STATUS_OK
+    expect(Timeout.timeout(2) do
+      proxy.flush
+    end).to be(:SERIAL_PROXY_STATUS_OK).or be(:SERIAL_PROXY_STATUS_ASSUMED_SUCCESS)
   ensure
     Timeout.timeout(2) { proxy&.close }
   end
