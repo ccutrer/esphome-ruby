@@ -28,6 +28,7 @@ module ESPHome
           instance = nil if instance.empty?
           address = address.host
         end
+        raise ArgumentError, "missing encryption key" unless encryption_key
 
         device = Device.new(address, encryption_key)
         device.connect
