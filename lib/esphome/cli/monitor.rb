@@ -47,7 +47,10 @@ module ESPHome
                      device_log_level: nil,
                      connection_log_level: nil,
                      log_level: nil,
-                     dump_config: false)
+                     dump_config: false,
+                     diagnostic_entities: true,
+                     config_entities: true,
+                     states: false)
         @device = device
         @win = nil
         @entities_by_key = {}
@@ -61,6 +64,9 @@ module ESPHome
         @logger = LoggerWrapper.new(self, level: log_level || Logger::INFO)
         @actions = actions
         @dump_config = dump_config
+        @diagnostic_entities = diagnostic_entities
+        @config_entities = config_entities
+        @states = states
         @winch_trapped = false
         @logwin = nil
         @screen_initialized = false
@@ -79,9 +85,17 @@ module ESPHome
 
       def run
         @device.on_message do |entity_or_log_line|
-          if entity_or_log_line.respond_to?(:key) && (entity_wrapper = @entities_by_key[entity_or_log_line.key])
-            entity_wrapper.touch
-            queue_ui_event(:entity, entity_wrapper)
+          if entity_or_log_line.respond_to?(:key)
+            key = entity_or_log_line.key
+            if (entity_wrapper = @entities_by_key[key])
+              entity_wrapper.touch
+              log_entity_state(entity_wrapper.__getobj__) if @states
+              queue_ui_event(:entity, entity_wrapper)
+            elsif @device.entities.key?(key)
+              # ignored diagnostic or config entity
+            else
+              logger.warn("Unexpected entity #{entity_or_log_line.inspect}")
+            end
           elsif entity_or_log_line.is_a?(Action)
             logger.info(entity_or_log_line.inspect)
           else
@@ -91,10 +105,16 @@ module ESPHome
 
         @device.on_connect do
           logger.info("Connected")
-          @name_width = @device.entities.values.map { |e| e.name.length }.max || 0
+          entities = @device.entities.values.select do |entity|
+            next false if entity.entity_category == :diagnostic && !@diagnostic_entities
+            next false if entity.entity_category == :config && !@config_entities
+
+            true
+          end
+          @name_width = entities.map { |e| e.name.length }.max || 0
           @entities_by_key = {}
           @entities = []
-          @device.entities.values.sort_by(&:name).each_with_index do |entity, idx|
+          entities.sort_by(&:name).each_with_index do |entity, idx|
             simple_name = entity.class.name.split("::").last
             entity_class = if Entities.const_defined?(simple_name)
                              Entities.const_get(simple_name, false)
@@ -188,6 +208,11 @@ module ESPHome
           close_screen
         end
         @device.disconnect
+      end
+
+      def log_entity_state(entity)
+        type = entity.class.name.split("::").last.gsub(/[A-Z]/) { |c| "_#{c.downcase}" }[1..]
+        add(nil, "\e[36m[S][#{type}]: '#{entity.name}' >> #{entity.formatted_state}\e[0m")
       end
 
       def add(_level, message = nil, progname = nil, render: true)

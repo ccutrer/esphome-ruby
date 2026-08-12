@@ -17,6 +17,9 @@ connection_log_level = :warn
 device_log_level = :debug
 dump_config = false
 port = 6053
+diagnostic_entities = false
+config_entities = true
+states = false
 opts = OptionParser.new do |opts|
   opts.banner = <<~TEXT
     Usage: esphome-monitor ([<uri>] <device_name> | <address> <encryption_key>)
@@ -42,6 +45,15 @@ opts = OptionParser.new do |opts|
   end
   opts.on("--dump-config", "Dump device configuration on connect (requires log streaming at info level)") do
     dump_config = true
+  end
+  opts.on("--[no-]diagnostic-entities", "include diagnostic entities (default off)") do |v|
+    diagnostic_entities = v
+  end
+  opts.on("--[no-]config-entities", "include configuration entities (default on)") do |v|
+    config_entities = v
+  end
+  opts.on("--[no-]states", "Log entity state changes (default off)") do |v|
+    states = v
   end
   opts.on("-h", "--help", "Show this help message") do
     puts opts
@@ -75,4 +87,12 @@ end
 
 device = ESPHome::Device.new(address, encryption_key, port:)
 
-ESPHome::Cli::Monitor.run(device, connection_log_level:, device_log_level:, log_level:, actions:, dump_config:)
+ESPHome::Cli::Monitor.run(device,
+                          connection_log_level:,
+                          device_log_level:,
+                          log_level:,
+                          actions:,
+                          dump_config:,
+                          diagnostic_entities:,
+                          config_entities:,
+                          states:)
