@@ -47,6 +47,9 @@ module ESPHome
         loop_thread = io.instance_variable_set(:@loop_thread, Thread.new do
           Thread.current.report_on_exception = false
           device.loop
+        rescue ConnectionClosedError, NotConnectedError
+          # Readers observe the disconnect as EOF; joining the loop must not mask it.
+          nil
         rescue IOError
           raise unless io.closed?
         end)
@@ -257,6 +260,7 @@ module ESPHome
       loop do
         data = @mutex.synchronize do
           raise EOFError if @closed && @buffer.empty?
+          raise EOFError, "serial proxy disconnected" if @buffer.empty? && !device.connected?
 
           @buffer.slice!(0, maxlen) unless @buffer.empty?
         end
@@ -281,7 +285,8 @@ module ESPHome
 
         deadline = monotonic_time + timeout if timeout
         Kernel.loop do
-          return nil if @closed || !device.connected?
+          return nil if @closed
+          raise EOFError, "serial proxy disconnected" unless device.connected?
 
           remaining = deadline && (deadline - monotonic_time)
           return nil if deadline && remaining <= 0
@@ -360,6 +365,8 @@ module ESPHome
 
           result = yield
           return result unless result.nil?
+
+          raise EOFError, "serial proxy disconnected" unless device.connected?
 
           @data_ready.wait(@mutex)
         end

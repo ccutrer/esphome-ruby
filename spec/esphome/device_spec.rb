@@ -12,6 +12,19 @@ RSpec.describe ESPHome::Device do
   end
 
   describe "#disconnect" do
+    it "notifies listeners once when a connection is closed" do
+      socket = instance_double(TCPSocket, close: nil)
+      device.instance_variable_set(:@socket, socket)
+      device.instance_variable_set(:@noise, Object.new)
+      allow(device).to receive(:send)
+      notifications = []
+      device.on_disconnect { notifications << device.connected? }
+
+      2.times { device.disconnect }
+
+      expect(notifications).to eq([false])
+    end
+
     it "does nothing when already disconnected" do
       expect { device.disconnect }.not_to raise_error
       expect(device).not_to be_connected

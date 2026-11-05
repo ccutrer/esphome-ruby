@@ -246,7 +246,6 @@ module ESPHome
         elsif message.is_a?(Api::DisconnectRequest)
           send(Api::DisconnectResponse.new)
           disconnected
-          @on_disconnect_callback.each(&:call)
         elsif message.is_a?(Api::DisconnectResponse)
           disconnected
         elsif message.is_a?(Api::PingResponse)
@@ -346,10 +345,12 @@ module ESPHome
     end
 
     def disconnected
+      was_connected = connected?
       @socket&.close
       @socket = nil
       @noise = nil
       @entities = nil
+      @on_disconnect_callback.each(&:call) if was_connected
     end
 
     def write_frame(data)
