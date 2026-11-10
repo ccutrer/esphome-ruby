@@ -84,6 +84,9 @@ module ESPHome
       end
 
       def run
+        reader_thread = nil
+        @stopping = false
+
         @device.on_message do |entity_or_log_line|
           if entity_or_log_line.respond_to?(:key)
             key = entity_or_log_line.key
@@ -135,6 +138,8 @@ module ESPHome
         end
 
         @device.on_disconnect do
+          next if @stopping
+
           logger.info("Gracefully disconnected")
           reconnect
         end
@@ -145,7 +150,7 @@ module ESPHome
         process_ui_events
 
         begin
-          Thread.new do
+          reader_thread = Thread.new do
             @device.loop
           rescue DeviceConnectionError, NotConnectedError, IOError, SocketError, SystemCallError, Timeout::Error => e
             logger.warn("Connection lost: #{e}")
@@ -204,10 +209,16 @@ module ESPHome
           end
         rescue Interrupt
           # exiting
+        end
+      ensure
+        @stopping = true
+        reader_thread&.kill
+        reader_thread&.join
+        begin
+          @device.disconnect
         ensure
           close_screen
         end
-        @device.disconnect
       end
 
       def log_entity_state(entity)
@@ -447,6 +458,8 @@ module ESPHome
       end
 
       def reconnect
+        return if @stopping
+
         @device.connect
       rescue DeviceConnectionError, NotConnectedError, IOError, SocketError, SystemCallError, Timeout::Error => e
         logger.warn("Failed to reconnect: #{e}")
