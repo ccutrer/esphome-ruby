@@ -250,6 +250,12 @@ module ESPHome
         @resize_pending
       end
 
+      def resize_display
+        @resize_pending = true
+        process_ui_events
+        render_all if @sub_active
+      end
+
       private
 
       def parse_ansi_and_render(line)
@@ -389,8 +395,10 @@ module ESPHome
         if @resize_pending
           if @screen_initialized
             rows, cols = IO.console.winsize
-            Curses.resizeterm(rows, cols)
-            @win&.resize(rows, cols)
+            # resizeterm queues KEY_RESIZE even when the size is unchanged.
+            # A popup consumes that key, so only resize when necessary.
+            Curses.resizeterm(rows, cols) if Curses.lines != rows || Curses.cols != cols
+            @win.resize(rows, cols) if @win && (@win.maxy != rows || @win.maxx != cols)
             @win&.clear
           else
             close_screen

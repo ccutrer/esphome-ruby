@@ -13,16 +13,24 @@ module ESPHome
 
           index = options.index(current) || 0
           loop do
-            render_select_options(win, title, options, index)
+            visible = dialog_fits?(win)
+            render_select_options(win, title, options, index) if visible
 
-            case win.getch
+            ch = (visible ? win : cli.win).getch
+            if cli.resize_pending? || ch == Curses::KEY_RESIZE
+              cli.resize_display
+              position_dialog_window(win) if dialog_fits?(win)
+              next if ch == Curses::KEY_RESIZE
+            end
+
+            case ch
             when Curses::Key::UP
               index = (index - 1) % options.length
             when Curses::Key::DOWN
               index = (index + 1) % options.length
             when "\n".ord
               return options[index]
-            when 27, Curses::KEY_RESIZE
+            when 27
               return nil
             when nil
               next
@@ -30,6 +38,16 @@ module ESPHome
           end
         ensure
           win&.close
+        end
+
+        def dialog_fits?(win)
+          win.maxx <= cli.win.maxx && win.maxy <= cli.win.maxy
+        end
+
+        def position_dialog_window(win)
+          top = (index + Monitor::HEADER_ROWS).clamp(0, cli.win.maxy - win.maxy)
+          left = (cli.name_width + 3).clamp(0, cli.win.maxx - win.maxx)
+          win.move(top, left)
         end
 
         def render_select_options(win, title, options, index)
@@ -48,11 +66,12 @@ module ESPHome
           win.refresh
         end
 
-        def build_dialog_window(height, width, title)
+        def build_dialog_window(height, width, title, fit_width: false)
           root = cli.win
           return unless root
 
           width = [width, title.length + 6].max
+          width = [width, root.maxx].min if fit_width
           return if width > root.maxx || height > root.maxy
 
           top = (index + Monitor::HEADER_ROWS).clamp(0, root.maxy - height)

@@ -75,4 +75,47 @@ RSpec.describe ESPHome::Cli::Monitor do
     expect(device).to have_received(:disconnect).once
     expect(monitor).to have_received(:close_screen).once
   end
+
+  it "resizes and redraws the background while a popup is active" do
+    console = instance_double(IO, winsize: [30, 100])
+    monitor.instance_variable_set(:@win, window)
+    monitor.instance_variable_set(:@screen_initialized, true)
+    monitor.instance_variable_set(:@sub_active, true)
+    allow(monitor).to receive(:process_ui_events).and_call_original
+    allow(monitor).to receive(:render_all)
+    allow(IO).to receive(:console).and_return(console)
+    allow(Curses).to receive_messages(lines: 24, cols: 80)
+    allow(Curses).to receive(:resizeterm)
+    allow(window).to receive_messages(maxy: 24, maxx: 80)
+    allow(window).to receive(:resize)
+    allow(window).to receive(:clear)
+
+    monitor.resize_display
+
+    expect(Curses).to have_received(:resizeterm).with(30, 100)
+    expect(window).to have_received(:resize).with(30, 100)
+    expect(monitor).to have_received(:render_all).once
+    expect(monitor).not_to be_resize_pending
+  end
+
+  it "does not generate another resize event when handling a resize key at the current size" do
+    console = instance_double(IO, winsize: [30, 100])
+    monitor.instance_variable_set(:@win, window)
+    monitor.instance_variable_set(:@screen_initialized, true)
+    monitor.instance_variable_set(:@sub_active, true)
+    allow(monitor).to receive(:process_ui_events).and_call_original
+    allow(monitor).to receive(:render_all)
+    allow(IO).to receive(:console).and_return(console)
+    allow(Curses).to receive_messages(lines: 30, cols: 100)
+    allow(Curses).to receive(:resizeterm)
+    allow(window).to receive_messages(maxy: 30, maxx: 100)
+    allow(window).to receive(:resize)
+    allow(window).to receive(:clear)
+
+    monitor.resize_display
+
+    expect(Curses).not_to have_received(:resizeterm)
+    expect(window).not_to have_received(:resize)
+    expect(monitor).to have_received(:render_all).once
+  end
 end
