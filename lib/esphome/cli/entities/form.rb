@@ -9,10 +9,18 @@ module ESPHome
         private
 
         def prompt_form(title, initial_value:, suffix:, field_width:)
-          field, form, win = build_form_dialog(title, suffix, field_width)
+          max_length = field_width
+          available_width = cli.win&.maxx.to_i - 4 - (suffix ? suffix.length + 1 : 0)
+          field_width = [field_width, available_width].min
+          return if field_width <= 0
+
+          field, form, win = build_form_dialog(title, suffix, field_width, max_length:)
           return unless win
 
           field.set_buffer(0, initial_value) if initial_value
+          selected = initial_value && !initial_value.empty?
+          field.set_fore(Curses::A_REVERSE) if selected
+          field.set_back(Curses::A_UNDERLINE | Curses::A_REVERSE) if selected
           form.post
           win.box(0, 0)
           win.setpos(0, 2)
@@ -25,12 +33,33 @@ module ESPHome
           win.refresh
 
           loop do
-            case (ch = win.getch)
+            ch = win.getch
+            if selected && (ch == Curses::KEY_LEFT || ch == Curses::KEY_RIGHT ||
+                            ch == Curses::KEY_BACKSPACE || ch == Curses::KEY_DC ||
+                            ch == 8 || ch == 127 || (ch.is_a?(String) && ch.match?(/[[:print:]]/)) ||
+                            (ch.is_a?(Integer) && ch.between?(32, 255)))
+              selected = false
+              field.set_fore(Curses::A_NORMAL)
+              field.set_back(Curses::A_UNDERLINE)
+              case ch
+              when Curses::KEY_LEFT
+                form.driver(Curses::REQ_BEG_FIELD)
+                next
+              when Curses::KEY_RIGHT
+                form.driver(Curses::REQ_END_FIELD)
+                next
+              else
+                form.driver(Curses::REQ_CLR_FIELD)
+                next if [Curses::KEY_BACKSPACE, Curses::KEY_DC, 8, 127].include?(ch)
+              end
+            end
+
+            case ch
             when Curses::KEY_RIGHT
               form.driver(Curses::REQ_NEXT_CHAR)
             when Curses::KEY_LEFT
               form.driver(Curses::REQ_PREV_CHAR)
-            when Curses::KEY_BACKSPACE
+            when Curses::KEY_BACKSPACE, 8, 127
               form.driver(Curses::REQ_DEL_PREV)
             when Curses::KEY_DC
               form.driver(Curses::REQ_DEL_CHAR)
@@ -55,7 +84,7 @@ module ESPHome
           win&.close
         end
 
-        def build_form_dialog(title, suffix, field_width)
+        def build_form_dialog(title, suffix, field_width, max_length: field_width)
           width = field_width + 4 + (suffix ? suffix.length + 1 : 0)
           win = build_dialog_window(3, width, title)
           return [nil, nil, nil] unless win
@@ -63,6 +92,9 @@ module ESPHome
           field = Curses::Field.new(1, field_width, 0, 0, 0, 0)
           field.set_back(Curses::A_UNDERLINE)
           field.opts_off(Curses::O_AUTOSKIP)
+          field.opts_off(Curses::O_BLANK)
+          field.opts_off(Curses::O_STATIC)
+          field.set_max(max_length)
           form = Curses::Form.new([field])
           form.set_win(win)
           form.set_sub(win.derwin(1, field_width, 1, 2))
